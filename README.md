@@ -6,9 +6,8 @@ Project LOOP is an AI-powered full-stack SaaS application designed to capture, c
 
 ## 👥 Team Structure
 
-### Member 1 — Abhiudaya Pratap Singh (@Abhi2005-abhi)
+### 1. Abhiudaya Pratap Singh (@Abhi2005-abhi)
 **Role:** Backend & AI Lead
-**Responsibilities:**
 * Prisma schema
 * PostgreSQL
 * Database migrations and seed data
@@ -24,9 +23,8 @@ Project LOOP is an AI-powered full-stack SaaS application designed to capture, c
 * Server-side RBAC enforcement
 * Backend deployment configuration
 
-### Member 2 — Priyam Rai (@Priyam2773)
+### 2. Priyam Rai (@Priyam2773)
 **Role:** Frontend Lead
-**Responsibilities:**
 * UI/UX Design
 * Next.js frontend
 * Dashboard
@@ -43,9 +41,8 @@ Project LOOP is an AI-powered full-stack SaaS application designed to capture, c
 * Loading, empty and error states
 * Accessibility and UI polish
 
-### Member 3 — Aman Kumar Yadav (@yadavaman05)
+### 3. Aman Kumar Yadav (@yadavaman05)
 **Role:** Full-Stack / Integration Lead
-**Responsibilities:**
 * CSV Upload
 * CSV validation and import flow
 * Feedback ingestion integration
@@ -69,64 +66,91 @@ Project LOOP is an AI-powered full-stack SaaS application designed to capture, c
 ## 🚀 Git Branch Strategy
 
 * `main` → Stable production-ready code (direct pushes are disabled)
-* `develop` → Team integration branch (all completed features are integrated here)
-* `feature/backend-ai` → Abhiudaya's feature branch
-* `feature/frontend` → Priyam's feature branch
-* `feature/integration` → Aman's feature branch
+* `develop` → Primary team integration branch
+* `feature/backend-ai` → Abhiudaya Pratap Singh
+* `feature/frontend` → Priyam Rai
+* `feature/integration` → Aman Kumar Yadav
 
 ---
 
-## 🔄 Team Git Workflow
+## 📁 Repository Structure
 
-1. Pull the latest `develop` branch before starting.
-2. Switch and work only on your assigned feature branch.
-3. Commit changes with meaningful, structured commit messages.
-4. Push your feature branch to the remote repository.
-5. Create a Pull Request (PR) on GitHub.
-6. The target branch for the PR **must be `develop`**.
-7. Other team members review and test the changes.
-8. Merge the PR into `develop`.
-9. Perform integration testing on the combined code.
-10. After the complete project is stable, create a final PR from `develop` to `main`.
+The current directories and files in the repository are structured as follows:
 
-### Setup & Sync Commands
+```text
+AI-Customer-Feedback-Intelligence-Platform/
+├── client/              # Frontend scaffolding (empty subdirectories)
+├── backend/             # Backend scaffolding (empty subdirectories)
+├── ai_service/          # AI Service scaffolding (empty subdirectories)
+├── docs/                # Project documentation
+│   └── COLLABORATION_GUIDE.md # Team collaboration and Git workflow guide
+├── .env.example         # Environment variables template
+├── .gitignore           # Root-level git ignore patterns
+└── README.md            # Project overview and team specifications
+```
 
+---
+
+## 🔄 Git Development Workflow
+
+* **`main`** → Production-ready, stable code
+* **`develop`** → Team integration and testing branch
+* **`feature/backend-ai`** → Abhiudaya's backend and AI development
+* **`feature/frontend`** → Priyam's frontend development
+* **`feature/integration`** → Aman's integration, CSV, RBAC integration, reports integration, testing, and documentation
+
+### Workflow Steps:
+```text
+Feature Branch ──> Push ──> Pull Request ──> Code Review ──> develop ──> Integration Testing ──> Final QA ──> Pull Request ──> main
+```
+*Direct commits to `main` or `develop` are prohibited.*
+
+---
+
+## 🔄 Team Collaboration Instructions
+
+Before starting work:
 ```bash
-# Get the latest integration updates
 git checkout develop
 git pull origin develop
 ```
 
-#### For Abhiudaya (`feature/backend-ai`):
+### Abhiudaya:
 ```bash
 git checkout feature/backend-ai
 git merge develop
 ```
 
-#### For Priyam (`feature/frontend`):
+### Priyam:
 ```bash
 git checkout feature/frontend
 git merge develop
 ```
 
-#### For Aman (`feature/integration`):
+### Aman:
 ```bash
 git checkout feature/integration
 git merge develop
 ```
 
-### Committing & Pushing Work
+### After completing work:
 ```bash
 git add .
-git commit -m "feat: describe your change"
+git commit -m "feat: describe the completed work"
 git push origin <your-branch-name>
 ```
+
+Then create a Pull Request:
+* **Feature branch** → `develop`
+
+After the project is fully tested and stable:
+* **`develop`** → `main`
 
 ---
 
 ## 🛠️ Approved Technology Stack
 
-* **Frontend & Framework**: Next.js 14 (App Router)
+* **Framework & Frontend**: Next.js 14 (App Router)
 * **Language**: TypeScript
 * **Styling**: Tailwind CSS
 * **Database**: PostgreSQL (Neon or Supabase)
@@ -140,13 +164,14 @@ git push origin <your-branch-name>
 
 ---
 
-## 🔒 Security
+## 🔒 Security Requirements
 
-* **No Secrets in Git**: Never commit `.env` files or hardcode API keys.
-* **Backend Security**: Never expose Claude API keys or DB credentials in frontend client code.
-* **Environment variables**: Use `.env.example` with placeholder values for setup.
-* **Server-side RBAC**: Enforce Role-Based Access Control on the server (never rely solely on hiding frontend elements).
-* **Multi-Tenant Data Isolation**: Every database query must be scoped by the authenticated `workspaceId`.
+* **Never commit `.env` files.**
+* **Never expose Claude API keys in frontend code.**
+* **Never expose database credentials.**
+* **Use `.env.example` with placeholders.**
+* **Enforce RBAC server-side** (never rely solely on hiding frontend elements).
+* **Enforce workspace-level multi-tenant data isolation** (every query must be scoped to the authenticated workspace).
 
 ---
 
