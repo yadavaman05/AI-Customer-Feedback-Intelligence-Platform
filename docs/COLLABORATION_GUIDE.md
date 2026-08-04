@@ -15,19 +15,19 @@ gitGraph
     checkout develop
     commit id: "Set up scaffolding"
     branch feature/frontend
-    branch feature/backend
-    branch feature/ai
+    branch feature/backend-ai
+    branch feature/integration
     checkout feature/frontend
     commit id: "Add login UI"
-    checkout feature/backend
+    checkout feature/backend-ai
     commit id: "Add auth endpoint"
     checkout develop
     merge feature/frontend id: "Merge Frontend PR"
-    checkout feature/ai
-    commit id: "Add LLM prompt"
+    checkout feature/integration
+    commit id: "Add CSV parser"
     checkout develop
-    merge feature/backend id: "Merge Backend PR"
-    merge feature/ai id: "Merge AI PR"
+    merge feature/backend-ai id: "Merge Backend PR"
+    merge feature/integration id: "Merge Integration PR"
     checkout main
     merge develop id: "Release v1.0.0"
 ```
@@ -41,9 +41,9 @@ gitGraph
 3. **`feature/*` (Feature Branches)**
    * **Purpose**: Individual sandboxes for feature development.
    * **Branches**:
+     * `feature/backend-ai` (Abhiudaya's workspace)
      * `feature/frontend` (Priyam's workspace)
-     * `feature/backend` (Abhiudaya's workspace)
-     * `feature/ai` (Aman's workspace)
+     * `feature/integration` (Aman's workspace)
 
 ---
 
@@ -66,16 +66,16 @@ git checkout -b develop
 git push -u origin develop
 
 # 4. Create and push feature branches
-git checkout -b feature/backend
-git push -u origin feature/backend
+git checkout -b feature/backend-ai
+git push -u origin feature/backend-ai
 
 git checkout develop
 git checkout -b feature/frontend
 git push -u origin feature/frontend
 
 git checkout develop
-git checkout -b feature/ai
-git push -u origin feature/ai
+git checkout -b feature/integration
+git push -u origin feature/integration
 ```
 
 ---
@@ -103,10 +103,7 @@ git fetch --all
 git checkout feature/frontend
 
 # For Abhiudaya:
-git checkout feature/backend
-
-# For Aman:
-git checkout feature/ai
+git checkout feature/backend-ai
 ```
 
 ---
@@ -242,7 +239,7 @@ git checkout develop
 git pull origin develop
 
 # 3. Switch to your feature branch
-git checkout feature/your-feature # e.g., feature/backend
+git checkout feature/your-feature # e.g., feature/backend-ai
 
 # 4. Integrate latest develop changes into your feature branch
 git merge develop
@@ -279,26 +276,27 @@ git push origin feature/your-feature
 
 To maximize efficiency and avoid cross-contributions conflicts, divide tasks cleanly:
 
-### 🎙️ 1. Frontend Module (`feature/frontend`) - Assigned to **Priyam Rai**
-* **Scope**: Build interactive dashboard, customer feedback ingestion forms, sentiment analysis visualizations, and settings pages.
+### ⚙️ 1. Backend & AI Module (`feature/backend-ai`) - Assigned to **Abhiudaya Pratap Singh**
+* **Scope**: Database schema, server authentication, APIs, Claude AI classification, theme clustering, and Voice of Customer generation backend.
 * **Key Tasks**:
-  * Implement TailwindCSS layouts and charts (using Recharts or Chart.js).
-  * Build state management (React Context or Zustand) to cache analytics.
-  * Integrate REST clients (Axios/Fetch) to interact with backend endpoints.
+  * Set up database models (PostgreSQL/Neon) and Prisma schemas.
+  * Integrate NextAuth credential structures and session helpers.
+  * Construct API endpoints (`app/api/feedback`, `app/api/themes`, `app/api/reports`).
+  * Integrate Claude API for classification (sentiment, feature area, rationale) and retrieval-grounded semantic search Q&A (Ask LOOP).
 
-### ⚙️ 2. Backend Module (`feature/backend`) - Assigned to **Abhiudaya Pratap Singh**
-* **Scope**: Maintain user authentication, session state, database schemas, API routes, and webhook processing.
+### 🎙️ 2. Frontend Module (`feature/frontend`) - Assigned to **Priyam Rai**
+* **Scope**: Build interactive dashboard, customer feedback ingestion forms, sentiment analysis visualizations, Ask LOOP chat user interface, settings configurations, and error templates.
 * **Key Tasks**:
-  * Set up database models (PostgreSQL/MongoDB) and CRUD actions.
-  * Write auth middleware (JWT-based session authentication).
-  * Build webhooks or ingestion APIs to gather customer feedback from third-party channels (Slack, Email, Typeform).
+  * Implement TailwindCSS layouts and charts (using Recharts).
+  * Build loading skeletons, empty/error fallbacks, 403, and 404 routes.
+  * Design feedback inbox listings and analytics drilldown views.
 
-### 🤖 3. AI Service Module (`feature/ai`) - Assigned to **Aman Kumar Yadav**
-* **Scope**: Develop LLM pipelines, sentiment analytics, and semantic searches over feedback database.
+### 🤖 3. Full-Stack / Integration Module (`feature/integration`) - Assigned to **Aman Kumar Yadav**
+* **Scope**: CSV ingestion pipelines, RBAC validations across frontend and backend, system testing, documentation, QA support, and final deployment.
 * **Key Tasks**:
-  * Design OpenAI/HuggingFace API connectors for automated categorization and sentiment scoring.
-  * Construct vector database integration (Pinecone/Chroma) for semantic search.
-  * Design feedback synthesis pipelines to generate automated summary reports.
+  * Implement CSV uploading parses, validator checks, and endpoint handoffs.
+  * Connect RBAC role states to user screens (restricting access based on ADMIN, ANALYST, VIEWER permissions).
+  * Seed 120+ database mock items and verify end-to-end integration tests.
 
 ---
 
