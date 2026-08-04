@@ -6,7 +6,8 @@ Project LOOP is an AI-powered full-stack SaaS application designed to capture, c
 
 ## 👥 Meet the Team
 
-* **Aman Kumar Yadav (@yadavaman05)** - Repository Owner & Tech Lead (AI Services & Integrations)
+* **Aman Kumar Yadav (@yadavaman05)** - Repository
+*  & Tech Lead (AI Services & Integrations)
 * **Abhiudaya Pratap Singh (@Abhi2005-abhi)** - Full-Stack Developer (Backend Services & DB Architecture)
 * **Priyam Rai (@Priyam2773)** - Frontend Developer (Client Web Application & UI/UX)
 
