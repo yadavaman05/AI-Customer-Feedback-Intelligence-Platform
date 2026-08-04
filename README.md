@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Customer Feedback Intelligence Platform (Project LOOP)
 
-## Getting Started
+Project LOOP is an AI-powered full-stack SaaS application designed to capture, consolidate, analyze, and synthesize customer feedback from multiple channels using advanced natural language processing, semantic search, and intelligence workflows.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 👥 Meet the Team
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* **Aman Kumar Yadav (@yadavaman05)** - Repository
+*  & Tech Lead (AI Services & Integrations)
+* **Abhiudaya Pratap Singh (@Abhi2005-abhi)** - Full-Stack Developer (Backend Services & DB Architecture)
+* **Priyam Rai (@Priyam2773)** - Frontend Developer (Client Web Application & UI/UX)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📁 Repository Structure
 
-## Learn More
+The project uses a monorepo structure to keep backend services, frontend applications, and AI pipelines unified and easy to manage:
 
-To learn more about Next.js, take a look at the following resources:
+* **/client** - Next.js or Vite React web app containing dashboard, feedback forms, and analytics.
+* **/backend** - Backend business logic, API endpoints (Node.js/Express or Python/FastAPI), auth, and database integration.
+* **/ai_service** - Python services for LLM processing, sentiment analysis, semantic embedding search, and agentic workflows.
+* **/docs** - API specs, database designs, architecture diagrams, and guidelines.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🚀 Git Development Workflow
 
-## Deploy on Vercel
+This repository uses a structured Git Flow Lite workflow:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+* **`main`** - Contains production-ready, stable, and tested code. Direct commits to `main` are restricted.
+* **`develop`** - The primary integration branch where features are merged for testing before release.
+* **`feature/*`** - Dedicated branches for individual modules:
+  * `feature/frontend` (Priyam Rai)
+  * `feature/backend` (Abhiudaya Pratap Singh)
+  * `feature/ai` (Aman Kumar Yadav)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+All changes are integrated via Pull Requests (PRs) submitted to the `develop` branch, reviewed by peers, and verified.
