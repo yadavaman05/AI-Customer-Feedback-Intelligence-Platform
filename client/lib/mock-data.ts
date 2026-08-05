@@ -1,0 +1,120 @@
+import { FeedbackItem, MetricCardData } from "@/types/feedback";
+
+export const mockMetrics: MetricCardData[] = [
+    {
+        title: "Total Tracked Feedback",
+        value: "1,248",
+        change: "+12.3%",
+        isPositive: true,
+        timeframe: "from last week",
+        iconName: "MessageSquare",
+    },
+    {
+        title: "Net Negative Sentiment",
+        value: "21.4%",
+        change: "-4.2%",
+        isPositive: true, // positive because negative sentiment went down
+        timeframe: "from last week",
+        iconName: "TrendingDown",
+    },
+    {
+        title: "Resolved Issues",
+        value: "842",
+        change: "+18.7%",
+        isPositive: true,
+        timeframe: "from last week",
+        iconName: "CheckCircle",
+    },
+    {
+        title: "AI Confidence Score",
+        value: "94.2%",
+        change: "+0.8%",
+        isPositive: true,
+        timeframe: "from relative base",
+        iconName: "Sparkles",
+    }
+];
+
+export const mockFeedbackList: FeedbackItem[] = [
+    {
+        id: "fb-1",
+        source: "email",
+        customerName: "Alice Vance",
+        customerEmail: "alice@vancetech.io",
+        sentiment: "negative",
+        category: "bug",
+        content: "The billing section throws an unexpected 500 error when attempting to download our monthly PDF invoices. This is blocking our accounting team.",
+        status: "new",
+        createdAt: "2026-08-04T18:45:00Z",
+        confidenceScore: 0.98,
+        rating: 2,
+    },
+    {
+        id: "fb-2",
+        source: "playstore",
+        customerName: "David Kim",
+        customerEmail: "david.kim@gmail.com",
+        sentiment: "positive",
+        category: "ui_ux",
+        content: "Absolutely love the new dark mode design! Navigator gestures are so smooth and simple. Great job on the 1.4 update.",
+        status: "resolved",
+        createdAt: "2026-08-04T12:30:00Z",
+        confidenceScore: 0.95,
+        rating: 5,
+    },
+    {
+        id: "fb-3",
+        source: "chat",
+        customerName: "Sophie Dupont",
+        customerEmail: "sophie@dupontconsulting.fr",
+        sentiment: "neutral",
+        category: "feature_request",
+        content: "Would it be possible to add webhook notifications for MS Teams? We have migrated away from Slack and want realtime alerts on our support channel.",
+        status: "in_progress",
+        createdAt: "2026-08-03T15:10:00Z",
+        confidenceScore: 0.89,
+        rating: 4,
+    },
+    {
+        id: "fb-4",
+        source: "twitter",
+        customerName: "Alex Mercer",
+        customerEmail: "alex@mercer.dev",
+        sentiment: "negative",
+        category: "performance",
+        content: "Initial script loading times for the embedded page widget are taking way too long on mobile devices (almost 4.2 seconds). Pls optimize chunk size.",
+        status: "new",
+        createdAt: "2026-08-03T09:20:00Z",
+        confidenceScore: 0.97,
+        rating: 1,
+    },
+    {
+        id: "fb-5",
+        source: "appstore",
+        customerName: "Elena Rostova",
+        customerEmail: "elena.r@ya.ru",
+        sentiment: "neutral",
+        category: "pricing",
+        content: "The custom enterprise plans require calling sales, but a clear overview for start-up bundles would save developer teams a lot of initial negotiation.",
+        status: "in_progress",
+        createdAt: "2026-08-02T20:15:00Z",
+        confidenceScore: 0.88,
+        rating: 3,
+    },
+];
+
+export const mockSentimentChart = [
+    { name: "Jan", positive: 400, neutral: 240, negative: 180 },
+    { name: "Feb", positive: 500, neutral: 280, negative: 200 },
+    { name: "Mar", positive: 650, neutral: 300, negative: 150 },
+    { name: "Apr", positive: 800, neutral: 320, negative: 120 },
+    { name: "May", positive: 950, neutral: 280, negative: 90 },
+    { name: "Jun", positive: 1248, neutral: 340, negative: 130 },
+];
+export const mockCategoryChart = [
+    { name: "Bugs", value: 382 },
+    { name: "Features", value: 294 },
+    { name: "UI/UX", value: 218 },
+    { name: "Performance", value: 184 },
+    { name: "Pricing", value: 170 },
+];
