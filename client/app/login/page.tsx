@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-<<<<<<< HEAD
-import { KeyRound, Mail } from "lucide-react";
-=======
 import { KeyRound, Mail, Eye, EyeOff, AlertCircle } from "lucide-react";
->>>>>>> origin/main
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Card, { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,17 +12,6 @@ export default function LoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState("demo.john@loop.ai");
     const [password, setPassword] = useState("password123");
-<<<<<<< HEAD
-    const [isLoading, setIsLoading] = useState(false);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setTimeout(() => {
-            setIsLoading(false);
-            router.push("/dashboard");
-        }, 1000);
-=======
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -79,7 +64,6 @@ export default function LoginPage() {
                 setFormError("Invalid email or password. Use demo.john@loop.ai / password123");
             }
         }, 1200);
->>>>>>> origin/main
     };
 
     return (
@@ -103,24 +87,15 @@ export default function LoginPage() {
                 </div>
 
                 {/* Card Panel */}
-<<<<<<< HEAD
-                <Card className="border-slate-800 bg-slate-950/65">
-                    <CardHeader>
-                        <CardTitle className="text-xl text-center font-bold">Welcome Back</CardTitle>
-                        <CardDescription className="text-center">
-=======
                 <Card className="border-slate-800 bg-slate-955/65 backdrop-blur-md">
                     <CardHeader>
                         <CardTitle className="text-xl text-center font-bold">Welcome Back</CardTitle>
                         <CardDescription className="text-center text-slate-400">
->>>>>>> origin/main
                             Login to access your customer feedback workspace
                         </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
-<<<<<<< HEAD
-=======
                             {formError && (
                                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2.5 text-xs text-red-405">
                                     <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
@@ -128,33 +103,11 @@ export default function LoginPage() {
                                 </div>
                             )}
 
->>>>>>> origin/main
                             <Input
                                 label="Corporate Email"
                                 type="email"
                                 required
                                 value={email}
-<<<<<<< HEAD
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@company.com"
-                                icon={<Mail className="h-4 w-4" />}
-                            />
-                            <Input
-                                label="Password"
-                                type="password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                icon={<KeyRound className="h-4 w-4" />}
-                            />
-                            <div className="flex items-center justify-between text-xs text-slate-400">
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                    <input type="checkbox" defaultChecked className="rounded bg-slate-900 border-slate-805 text-primary focus:ring-opacity-50" />
-                                    Remember this device
-                                </label>
-                                <a href="#" className="hover:text-emerald-400 transition-colors">Forgot password?</a>
-=======
                                 onChange={(e) => {
                                     setEmail(e.target.value);
                                     if (emailError) setEmailError("");
@@ -195,16 +148,11 @@ export default function LoginPage() {
                                 <Link href="/forgot-password" className="text-slate-400 hover:text-emerald-400 Transition-colors">
                                     Forgot password?
                                 </Link>
->>>>>>> origin/main
                             </div>
                         </CardContent>
 
                         <CardFooter className="flex flex-col gap-4 mt-2">
-<<<<<<< HEAD
-                            <Button type="submit" isLoading={isLoading} className="w-full text-slate-955 font-bold">
-=======
                             <Button type="submit" isLoading={isLoading} className="w-full text-slate-950 font-bold">
->>>>>>> origin/main
                                 Sign In to Workspace
                             </Button>
                             <div className="text-xs text-center text-slate-500 w-full">
@@ -220,7 +168,4 @@ export default function LoginPage() {
         </div>
     );
 }
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/main
