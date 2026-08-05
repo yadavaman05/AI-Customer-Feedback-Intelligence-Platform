@@ -1,0 +1,11 @@
+﻿  frontend-day1
+* frontend-day2
+  main
+  remotes/origin/HEAD -> origin/main
+  remotes/origin/develop
+  remotes/origin/feature/backend-ai
+  remotes/origin/feature/frontend
+  remotes/origin/feature/integration
+  remotes/origin/frontend-day1
+  remotes/origin/frontend-day2
+  remotes/origin/main
