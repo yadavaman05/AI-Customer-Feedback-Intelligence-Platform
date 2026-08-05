@@ -1,7 +1,11 @@
 "use client";
 
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+<<<<<<< HEAD
 import { mockSentimentChart } from "@/lib/mock-data";
+=======
+import { mockSentimentChart } from "@/lib/mockData";
+>>>>>>> origin/main
 
 export default function SentimentTrend() {
     return (

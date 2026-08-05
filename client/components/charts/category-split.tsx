@@ -1,7 +1,11 @@
 "use client";
 
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+<<<<<<< HEAD
 import { mockCategoryChart } from "@/lib/mock-data";
+=======
+import { mockCategoryChart } from "@/lib/mockData";
+>>>>>>> origin/main
 
 const COLORS = ["#10b981", "#8b5cf6", "#3b82f6", "#f59e0b", "#94a3b8"];
 
