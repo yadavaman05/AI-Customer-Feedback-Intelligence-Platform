@@ -5,63 +5,148 @@ import PageHeader from "@/components/ui/page-header";
 import Card from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/modal";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import EmptyState from "@/components/ui/empty-state";
 import { mockFeedbackList } from "@/lib/mockData";
 import { formatDate, formatCapitalize } from "@/utils/format";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { FeedbackItem } from "@/types/feedback";
+
+// Import custom reusable feedback components
+import SourceBadge from "@/components/feedback/source-badge";
+import SentimentBadge from "@/components/feedback/sentiment-badge";
+import FeedbackCard from "@/components/feedback/feedback-card";
+import FeedbackTable from "@/components/feedback/feedback-table";
+import FeedbackFilters, { FeedbackFiltersState } from "@/components/feedback/feedback-filters";
+import FeedbackModal from "@/components/feedback/feedback-modal";
+import FeedbackForm from "@/components/feedback/feedback-form";
+import Pagination from "@/components/feedback/pagination";
+
+import { LayoutGrid, List, Plus, Sparkles, Activity, FileText } from "lucide-react";
 
 export default function FeedbackInboxPage() {
     const [items, setItems] = useState<FeedbackItem[]>(mockFeedbackList);
     const [selectedItem, setSelectedItem] = useState<FeedbackItem | null>(null);
-    const [categoryFilter, setCategoryFilter] = useState<string>("all");
-    const [sentimentFilter, setSentimentFilter] = useState<string>("all");
-    const [statusFilter, setStatusFilter] = useState<string>("all");
-    const [realSearchQuery, setRealSearchQuery] = useState<string>("");
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+
+    // Unified filter state
+    const [filters, setFilters] = useState<FeedbackFiltersState>({
+        searchQuery: "",
+        rating: "all",
+        sentiment: "all",
+        source: "all",
+        category: "all",
+        status: "all",
+        startDate: "",
+        endDate: "",
+    });
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
+    // Apply front-end filtering
     const filteredItems = items.filter((item) => {
-        const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-        const matchesSentiment = sentimentFilter === "all" || item.sentiment === sentimentFilter;
-        const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+        // Search filter: Name, Email, Content
+        const query = filters.searchQuery.toLowerCase().trim();
         const matchesSearch =
-            item.customerName.toLowerCase().includes(realSearchQuery.toLowerCase()) ||
-            item.customerEmail.toLowerCase().includes(realSearchQuery.toLowerCase()) ||
-            item.content.toLowerCase().includes(realSearchQuery.toLowerCase());
+            query === "" ||
+            item.customerName.toLowerCase().includes(query) ||
+            item.customerEmail.toLowerCase().includes(query) ||
+            item.content.toLowerCase().includes(query);
 
-        return matchesCategory && matchesSentiment && matchesStatus && matchesSearch;
+        // Dropdowns filters
+        const matchesCategory = filters.category === "all" || item.category === filters.category;
+        const matchesSentiment = filters.sentiment === "all" || item.sentiment === filters.sentiment;
+        const matchesStatus = filters.status === "all" || item.status === filters.status;
+        const matchesSource = filters.source === "all" || item.source === filters.source;
+
+        // Rating match
+        const matchesRating =
+            filters.rating === "all" || item.rating === Number(filters.rating);
+
+        // Date range filter
+        let matchesDate = true;
+        const itemDateStr = item.createdAt.slice(0, 10); // get YYYY-MM-DD
+        if (filters.startDate) {
+            matchesDate = matchesDate && itemDateStr >= filters.startDate;
+        }
+        if (filters.endDate) {
+            matchesDate = matchesDate && itemDateStr <= filters.endDate;
+        }
+
+        return (
+            matchesSearch &&
+            matchesCategory &&
+            matchesSentiment &&
+            matchesStatus &&
+            matchesSource &&
+            matchesRating &&
+            matchesDate
+        );
     });
 
-    // Reset pagination to first page when filters change
-    const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setCategoryFilter(e.target.value);
+    // Actions
+    const handleFiltersChange = (newFilters: FeedbackFiltersState) => {
+        setFilters(newFilters);
+        setCurrentPage(1); // Reset page to 1 when filters change
+    };
+
+    const handleResetFilters = () => {
+        setFilters({
+            searchQuery: "",
+            rating: "all",
+            sentiment: "all",
+            source: "all",
+            category: "all",
+            status: "all",
+            startDate: "",
+            endDate: "",
+        });
         setCurrentPage(1);
     };
 
-    const handleSentimentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setSentimentFilter(e.target.value);
-        setCurrentPage(1);
+    const handleStatusChange = (id: string, newStatus: "new" | "in_progress" | "resolved") => {
+        setItems((prev) =>
+            prev.map((item) =>
+                item.id === id ? { ...item, status: newStatus } : item
+            )
+        );
+        if (selectedItem && selectedItem.id === id) {
+            setSelectedItem((prev) => (prev ? { ...prev, status: newStatus } : null));
+        }
     };
 
-    const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setStatusFilter(e.target.value);
-        setCurrentPage(1);
+    const handleCreateSuccess = (
+        formValues: Omit<FeedbackItem, "id" | "createdAt" | "confidenceScore" | "sentiment" | "aiSummary" | "suggestedAction" | "keywords">
+    ) => {
+        // Mocking AI classifications for manually created items
+        const generatedConfidence = parseFloat((Math.random() * (0.99 - 0.72) + 0.72).toFixed(2));
+
+        // Simple automatic sentiment selector based on rating
+        let inferredSentiment: FeedbackItem["sentiment"] = "neutral";
+        if (formValues.rating && formValues.rating >= 4) inferredSentiment = "positive";
+        if (formValues.rating && formValues.rating <= 2) inferredSentiment = "negative";
+
+        const generatedSummary = `Ingested review highlights ${formValues.customerName} concern regarding ${formValues.category}.`;
+        const generatedAction = `Contact customer at ${formValues.customerEmail} to address the logged ${formValues.category} issue.`;
+        const generatedKeywords = [formValues.category, formValues.source, "user-created"];
+
+        const newItem: FeedbackItem = {
+            id: `fb-${items.length + 1}`,
+            createdAt: new Date().toISOString(),
+            confidenceScore: generatedConfidence,
+            sentiment: inferredSentiment,
+            aiSummary: generatedSummary,
+            suggestedAction: generatedAction,
+            keywords: generatedKeywords,
+            ...formValues,
+        };
+
+        setItems((prev) => [newItem, ...prev]);
+        setIsCreateOpen(false);
     };
 
-    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setRealSearchQuery(e.target.value);
-        setCurrentPage(1);
-    };
-
-    const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setItemsPerPage(Number(e.target.value));
-        setCurrentPage(1);
-    };
-
+    // Pagination calculations
     const totalItems = filteredItems.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
     const paginatedItems = filteredItems.slice(
@@ -69,286 +154,274 @@ export default function FeedbackInboxPage() {
         currentPage * itemsPerPage
     );
 
-    const handleStatusChange = (id: string, newStatus: 'new' | 'in_progress' | 'resolved') => {
-        setItems(prevItems =>
-            prevItems.map(item =>
-                item.id === id ? { ...item, status: newStatus } : item
-            )
-        );
-        if (selectedItem && selectedItem.id === id) {
-            setSelectedItem(prev => prev ? { ...prev, status: newStatus } : null);
-        }
-    };
-
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Feedback Inbox"
-                description="Browse, filter, and inspect customer feedback ingested from standard support streams."
-            />
+            {/* Page Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <PageHeader
+                    title="Feedback Analytics Inbox"
+                    description="Browse, filter, and inspect customer feedbacks ingested from various customer service and review channels."
+                />
+                <Button
+                    onClick={() => setIsCreateOpen(true)}
+                    variant="primary"
+                    className="sm:self-end h-10 px-4 bg-emerald-400 hover:bg-emerald-300 font-bold text-slate-950 flex items-center justify-center gap-1.5 rounded-lg shadow-lg cursor-pointer"
+                >
+                    <Plus className="h-4.5 w-4.5 stroke-[3px]" />
+                    Ingest Feedback
+                </Button>
+            </div>
 
             {/* Filter Toolbar */}
-            <Card className="p-4 border-slate-905 bg-slate-955/30">
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                    {/* Search bar */}
-                    <div className="flex-1 flex items-center border border-slate-900 bg-slate-950/40 rounded-lg px-3 py-2 max-w-md">
-                        <Search className="h-3.5 w-3.5 text-slate-500 mr-2" />
-                        <input
-                            type="text"
-                            placeholder="Search by customer name, email, or content..."
-                            value={realSearchQuery}
-                            onChange={handleSearchChange}
-                            className="bg-transparent border-none outline-none text-xs text-slate-205 placeholder-slate-500 w-full"
+            <FeedbackFilters
+                filters={filters}
+                onChange={handleFiltersChange}
+                onReset={handleResetFilters}
+            />
+
+            {/* View Layout Toggle Toolbar */}
+            <div className="flex justify-between items-center bg-slate-950/20 p-2 rounded-lg border border-slate-900">
+                <span className="text-xs text-slate-500 font-mono">
+                    FOUND <span className="text-slate-300 font-semibold">{totalItems}</span> ENTRIES
+                </span>
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded p-1">
+                    <button
+                        onClick={() => setViewMode("table")}
+                        className={`p-1 rounded transition-all cursor-pointer ${viewMode === "table"
+                            ? "bg-slate-800 text-emerald-400"
+                            : "text-slate-500 hover:text-slate-350"
+                            }`}
+                        title="Table list View"
+                    >
+                        <List className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => setViewMode("grid")}
+                        className={`p-1 rounded transition-all cursor-pointer ${viewMode === "grid"
+                            ? "bg-slate-800 text-emerald-400"
+                            : "text-slate-500 hover:text-slate-350"
+                            }`}
+                        title="Card grid View"
+                    >
+                        <LayoutGrid className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Content Area */}
+            {items.length === 0 ? (
+                /* Primary Database Empty State */
+                <EmptyState
+                    title="No Feedback Records Ingested"
+                    description="This workspace has not ingested any customer reviews yet. Get started by manual ingestion."
+                    actionText="Ingest First Feedback"
+                    onAction={() => setIsCreateOpen(true)}
+                />
+            ) : filteredItems.length === 0 ? (
+                /* Filters Empty State */
+                <EmptyState
+                    title="No Matching Search Results"
+                    description="We couldn't find any reviews matching the criteria you specified. Try adjusting your query or date range filters."
+                    actionText="Reset Active Filters"
+                    onAction={handleResetFilters}
+                />
+            ) : viewMode === "table" ? (
+                /* Table list view representation */
+                <Card className="p-0 border-slate-900 bg-slate-955/35 overflow-hidden">
+                    <FeedbackTable
+                        items={paginatedItems}
+                        onSelectItem={(item) => setSelectedItem(item)}
+                    />
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                        itemsPerPage={itemsPerPage}
+                        onItemsPerPageChange={(size) => {
+                            setItemsPerPage(size);
+                            setCurrentPage(1);
+                        }}
+                        totalItems={totalItems}
+                    />
+                </Card>
+            ) : (
+                /* Card grid representation */
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {paginatedItems.map((item) => (
+                            <FeedbackCard
+                                key={item.id}
+                                item={item}
+                                onClick={() => setSelectedItem(item)}
+                            />
+                        ))}
+                    </div>
+                    <Card className="p-0 border-slate-900 bg-slate-955/35 overflow-hidden">
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                            itemsPerPage={itemsPerPage}
+                            onItemsPerPageChange={(size) => {
+                                setItemsPerPage(size);
+                                setCurrentPage(1);
+                            }}
+                            totalItems={totalItems}
                         />
-                    </div>
-
-                    {/* Core filters */}
-                    <div className="flex flex-wrap items-center gap-3 text-xs md:text-sm">
-                        <div className="flex items-center gap-1.5 bg-slate-950/40 px-3 py-2 border border-slate-900 rounded-lg">
-                            <span className="text-slate-500 text-3xs font-mono">CATEGORY:</span>
-                            <select
-                                value={categoryFilter}
-                                onChange={handleCategoryChange}
-                                className="bg-transparent outline-none border-none text-xs text-slate-350 cursor-pointer font-sans"
-                            >
-                                <option value="all" className="bg-slate-950 text-slate-300">All Categories</option>
-                                <option value="bug" className="bg-slate-950 text-slate-300">Bugs</option>
-                                <option value="feature_request" className="bg-slate-950 text-slate-300">Feature Requests</option>
-                                <option value="ui_ux" className="bg-slate-950 text-slate-300">UI/UX</option>
-                                <option value="performance" className="bg-slate-950 text-slate-300">Performance</option>
-                                <option value="pricing" className="bg-slate-950 text-slate-300">Pricing</option>
-                            </select>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 bg-slate-950/40 px-3 py-2 border border-slate-900 rounded-lg">
-                            <span className="text-slate-500 text-3xs font-mono">SENTIMENT:</span>
-                            <select
-                                value={sentimentFilter}
-                                onChange={handleSentimentChange}
-                                className="bg-transparent outline-none border-none text-xs text-slate-350 cursor-pointer font-sans"
-                            >
-                                <option value="all" className="bg-slate-950 text-slate-300">All Sentiments</option>
-                                <option value="positive" className="bg-slate-950 text-slate-300">Positive</option>
-                                <option value="neutral" className="bg-slate-950 text-slate-300">Neutral</option>
-                                <option value="negative" className="bg-slate-950 text-slate-300">Negative</option>
-                            </select>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 bg-slate-950/40 px-3 py-2 border border-slate-900 rounded-lg">
-                            <span className="text-slate-500 text-3xs font-mono">STATUS:</span>
-                            <select
-                                value={statusFilter}
-                                onChange={handleStatusFilterChange}
-                                className="bg-transparent outline-none border-none text-xs text-slate-350 cursor-pointer font-sans"
-                            >
-                                <option value="all" className="bg-slate-950 text-slate-300">All Statuses</option>
-                                <option value="new" className="bg-slate-950 text-slate-300">New</option>
-                                <option value="in_progress" className="bg-slate-950 text-slate-300">In Progress</option>
-                                <option value="resolved" className="bg-slate-950 text-slate-300">Resolved</option>
-                            </select>
-                        </div>
-                    </div>
+                    </Card>
                 </div>
-            </Card>
+            )}
 
-            {/* Main Table Card */}
-            <Card className="p-0 border-slate-805 bg-slate-955/30 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Customer</TableHead>
-                                <TableHead>Feedback Snippet</TableHead>
-                                <TableHead>AI Category</TableHead>
-                                <TableHead>Sentiment</TableHead>
-                                <TableHead>Execution Status</TableHead>
-                                <TableHead className="text-right">Ingested</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {paginatedItems.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-36 text-center text-slate-500 text-xs">
-                                        No feedback items match the selected criteria.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                paginatedItems.map((item) => (
-                                    <TableRow
-                                        key={item.id}
-                                        onClick={() => setSelectedItem(item)}
-                                        className="cursor-pointer hover:bg-slate-900/30"
-                                    >
-                                        <TableCell className="font-semibold">
-                                            <div className="text-xs text-white leading-5">{item.customerName}</div>
-                                            <div className="text-4xs text-slate-550 leading-3">{item.customerEmail}</div>
-                                        </TableCell>
-                                        <TableCell className="max-w-xs md:max-w-md truncate text-xs text-slate-350">
-                                            {item.content}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{formatCapitalize(item.category)}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={
-                                                item.sentiment === "positive" ? "success" :
-                                                    item.sentiment === "negative" ? "error" : "default"
-                                            }>
-                                                {formatCapitalize(item.sentiment)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={
-                                                item.status === "resolved" ? "success" :
-                                                    item.status === "in_progress" ? "warning" : "default"
-                                            }>
-                                                {formatCapitalize(item.status)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right text-4xs md:text-xs text-slate-450">
-                                            {formatDate(item.createdAt)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+            {/* Ingest Feedback Form Modal */}
+            {isCreateOpen && (
+                <FeedbackModal
+                    isOpen={isCreateOpen}
+                    onClose={() => setIsCreateOpen(false)}
+                    title="Ingest Customer Review"
+                    description="Manually insert an ingested ticket into the processing queue."
+                    size="lg"
+                >
+                    <FeedbackForm
+                        onSubmitSuccess={handleCreateSuccess}
+                        onCancel={() => setIsCreateOpen(false)}
+                    />
+                </FeedbackModal>
+            )}
 
-                {/* Pagination Controls */}
-                <div className="px-6 py-4 border-t border-slate-905 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs bg-slate-955/20 text-slate-400">
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                            <span>Show</span>
-                            <select
-                                value={itemsPerPage}
-                                onChange={handlePageSizeChange}
-                                className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs text-slate-300 outline-none focus:border-emerald-500/50"
-                            >
-                                <option value={5}>5</option>
-                                <option value={10}>10</option>
-                                <option value={20}>20</option>
-                            </select>
-                            <span>rows per page</span>
-                        </div>
-                        <span className="hidden sm:inline text-slate-550">|</span>
-                        <span>
-                            Showing <span className="text-slate-200 font-semibold">{totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span> to{" "}
-                            <span className="text-slate-200 font-semibold">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
-                            <span className="text-slate-200 font-semibold">{totalItems}</span> matching items
-                        </span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage((c) => Math.max(c - 1, 1))}
-                            className="h-8 py-0.5 px-2.5 flex items-center gap-1 text-xs"
-                        >
-                            <ChevronLeft className="h-3.5 w-3.5" /> Previous
-                        </Button>
-                        <span className="text-slate-400">
-                            Page <span className="text-slate-200 font-semibold">{currentPage}</span> of{" "}
-                            <span className="text-slate-200 font-semibold">{totalPages}</span>
-                        </span>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={currentPage === totalPages}
-                            onClick={() => setCurrentPage((c) => Math.min(c + 1, totalPages))}
-                            className="h-8 py-0.5 px-2.5 flex items-center gap-1 text-xs"
-                        >
-                            Next <ChevronRight className="h-3.5 w-3.5" />
-                        </Button>
-                    </div>
-                </div>
-            </Card>
-
-            {/* Feedback details popup overlay */}
+            {/* Feedback Inspector Detail Modal */}
             {selectedItem && (
-                <Modal
+                <FeedbackModal
                     isOpen={!!selectedItem}
                     onClose={() => setSelectedItem(null)}
-                    title={`Ticket Details - #${selectedItem.id}`}
-                    description={`Customer inputs ingested from ${formatCapitalize(selectedItem.source)} channel`}
+                    title={`Ticket Inspector - #${selectedItem.id}`}
+                    description={`Detailed analysis of customer feedback ingested via ${formatCapitalize(selectedItem.source)} stream`}
+                    size="lg"
                     footer={
-                        <div className="flex items-center justify-between w-full">
+                        <div className="flex flex-wrap items-center justify-between w-full gap-2">
                             <div className="flex gap-2">
                                 <Button
                                     size="sm"
                                     variant="outline"
                                     disabled={selectedItem.status === "in_progress"}
                                     onClick={() => handleStatusChange(selectedItem.id, "in_progress")}
+                                    className="cursor-pointer"
                                 >
                                     Mark In-Progress
                                 </Button>
                                 <Button
                                     size="sm"
                                     variant="primary"
-                                    className="text-slate-950 font-bold"
+                                    className="text-slate-950 font-bold bg-emerald-400 hover:bg-emerald-350 border-none cursor-pointer"
                                     disabled={selectedItem.status === "resolved"}
                                     onClick={() => handleStatusChange(selectedItem.id, "resolved")}
                                 >
                                     Mark Resolved
                                 </Button>
                             </div>
-                            <Button size="sm" variant="ghost" className="text-slate-400" onClick={() => setSelectedItem(null)}>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-slate-400 hover:text-slate-205 cursor-pointer font-medium"
+                                onClick={() => setSelectedItem(null)}
+                            >
                                 Close Panel
                             </Button>
                         </div>
                     }
                 >
-                    <div className="space-y-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-900 pb-3">
+                    <div className="space-y-6">
+                        {/* Section 1: Customer Details Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-900 pb-4">
                             <div>
-                                <span className="text-4xs text-slate-505 uppercase tracking-widest font-mono">Customer</span>
-                                <h4 className="text-xs md:text-sm font-semibold text-white mt-0.5">{selectedItem.customerName}</h4>
-                                <p className="text-4xs md:text-xs text-slate-405">{selectedItem.customerEmail}</p>
+                                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">Customer Information</span>
+                                <h4 className="text-sm md:text-base font-semibold text-white mt-1">{selectedItem.customerName}</h4>
+                                <p className="text-xs text-slate-400 font-mono mt-0.5">{selectedItem.customerEmail}</p>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Badge variant={
-                                    selectedItem.sentiment === "positive" ? "success" :
-                                        selectedItem.sentiment === "negative" ? "error" : "default"
-                                }>
-                                    {formatCapitalize(selectedItem.sentiment)}
+                            <div className="flex items-center gap-1.5">
+                                <SentimentBadge sentiment={selectedItem.sentiment} />
+                                <Badge variant="outline" className="px-2.5 py-0.5 border-slate-800 text-slate-350 text-xs">
+                                    {formatCapitalize(selectedItem.category)}
                                 </Badge>
-                                <Badge variant="outline">{formatCapitalize(selectedItem.category)}</Badge>
+                                <SourceBadge source={selectedItem.source} />
                             </div>
                         </div>
 
+                        {/* Section 2: Full Feedback Text */}
                         <div>
-                            <span className="text-4xs text-slate-505 uppercase tracking-widest font-mono">Aggregated Feedback Content</span>
-                            <p className="mt-2 text-xs md:text-sm text-slate-350 leading-relaxed bg-slate-900/40 p-4 border border-slate-900 rounded-lg">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono flex items-center gap-1">
+                                <FileText className="h-3 w-3 text-slate-655" />
+                                Ingested Message Content
+                            </span>
+                            <p className="mt-2 text-xs md:text-sm text-slate-300 leading-relaxed bg-slate-950/50 p-4 border border-slate-900 rounded-xl whitespace-pre-wrap">
                                 &quot;{selectedItem.content}&quot;
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 border-t border-slate-900 pt-3 text-2xs md:text-xs">
-                            <div>
-                                <span className="text-slate-505 uppercase tracking-widest font-mono text-4xs">LLM Confidence Classification</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <div className="flex-1 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                        {/* Section 3: AI Analysis (Summary & Suggestion) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-900 pt-4">
+                            <div className="p-4 bg-slate-900/10 border border-slate-900/60 rounded-xl space-y-2">
+                                <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-mono flex items-center gap-1">
+                                    <Sparkles className="h-3 w-3 text-emerald-400" />
+                                    Mock AI Summary
+                                </span>
+                                <p className="text-xs text-slate-350 leading-relaxed">
+                                    {selectedItem.aiSummary || "Ingestion algorithm classification in queue. Review highlights will show here once processed."}
+                                </p>
+                            </div>
+                            <div className="p-4 bg-slate-900/10 border border-slate-900/60 rounded-xl space-y-2">
+                                <span className="text-[10px] text-emerald-400 uppercase tracking-widest font-mono flex items-center gap-1">
+                                    <Activity className="h-3 w-3 text-emerald-400" />
+                                    Mock Suggested Action
+                                </span>
+                                <p className="text-xs text-slate-350 leading-relaxed">
+                                    {selectedItem.suggestedAction || "Suggested response options will generate automatically post category matching check."}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Section 4: Keywords / Key Phrases */}
+                        {selectedItem.keywords && selectedItem.keywords.length > 0 && (
+                            <div className="border-t border-slate-900/70 pt-4">
+                                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">Entity Keywords Found</span>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {selectedItem.keywords.map((word, i) => (
+                                        <span
+                                            key={i}
+                                            className="text-[10px] bg-slate-950 border border-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono"
+                                        >
+                                            #{word}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Section 5: Metadata Footer */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-900 pt-4 text-xs md:text-sm">
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-slate-500 uppercase tracking-widest font-mono text-[10px]">Classification Confidence</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-1 bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-850">
                                         <div
-                                            className="bg-emerald-500 h-full rounded-full transition-all"
+                                            className="bg-emerald-400 h-full rounded-full transition-all"
                                             style={{ width: `${selectedItem.confidenceScore * 100}%` }}
                                         />
                                     </div>
-                                    <span className="text-white font-bold font-mono">{(selectedItem.confidenceScore * 100).toFixed(0)}%</span>
+                                    <span className="text-emerald-400 font-bold font-mono text-xs">
+                                        {(selectedItem.confidenceScore * 100).toFixed(0)}%
+                                    </span>
                                 </div>
                             </div>
-                            <div>
-                                <span className="text-slate-505 uppercase tracking-widest font-mono text-4xs">Customer Rating</span>
-                                <div className="text-white font-semibold mt-1">
-                                    {selectedItem.rating ? `${selectedItem.rating} / 5 Stars` : "Not provided"}
+                            <div className="flex flex-col gap-1 md:items-end justify-center">
+                                <span className="text-slate-505 uppercase tracking-widest font-mono text-[9px]">Ingested Timestamp</span>
+                                <div className="text-slate-350 font-mono text-xs mt-0.5">
+                                    {formatDate(selectedItem.createdAt)}
                                 </div>
                             </div>
                         </div>
                     </div>
-                </Modal>
+                </FeedbackModal>
             )}
         </div>
     );
 }
-
