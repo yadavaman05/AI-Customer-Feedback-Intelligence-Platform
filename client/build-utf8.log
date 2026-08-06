@@ -1,0 +1,77 @@
+﻿
+> client@0.1.0 build
+> next build
+
+  Γû▓ Next.js 14.2.35
+
+   Creating an optimized production build ...
+node.exe : Failed to 
+compile.
+At line:1 char:1
++ & "C:\Program Files
+\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Failed    
+ to compile.:Stri    
+ng) [], RemoteEx    
+ception
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+
+./app/(dashboard)/fee
+dback/page.tsx
+Error: 
+  [31mx[0m 
+Unexpected token 
+`div`. Expected jsx 
+identifier
+     ,-[[36;1;4mC:\U
+sers\priya\Desktop\Pr
+oject-Loop\client\app
+\(dashboard)\feedback
+\page.tsx[0m:156:1]
+ [2m156[0m |     );
+ [2m157[0m | 
+ [2m158[0m |     
+return (
+ [2m159[0m |       
+  <div className="spa
+ce-y-6">
+     : [31;1m       
+  ^^^[0m
+ [2m160[0m |       
+      {/* Page 
+Header */}
+ [2m161[0m |       
+      <div 
+className="flex 
+flex-col sm:flex-row 
+sm:items-center 
+justify-between 
+gap-4">
+ [2m161[0m |       
+          <PageHeader
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for 
+requested module:
+./app/(dashboard)/fee
+dback/page.tsx
+
+
+> Build failed 
+because of webpack 
+errors

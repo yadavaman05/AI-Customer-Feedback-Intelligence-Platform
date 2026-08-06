@@ -1,6 +1,6 @@
 export interface FeedbackItem {
     id: string;
-    source: 'email' | 'chat' | 'playstore' | 'appstore' | 'twitter' | 'survey' | 'other';
+    source: 'email' | 'chat' | 'playstore' | 'appstore' | 'twitter' | 'survey' | 'website' | 'google' | 'other';
     customerName: string;
     customerEmail: string;
     sentiment: 'positive' | 'neutral' | 'negative';
@@ -10,6 +10,9 @@ export interface FeedbackItem {
     status: 'new' | 'in_progress' | 'resolved';
     createdAt: string;
     confidenceScore: number;
+    aiSummary?: string;
+    suggestedAction?: string;
+    keywords?: string[];
 }
 
 export interface ChatMessage {
