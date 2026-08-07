@@ -28,3 +28,44 @@ export async function GET(
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
+
+export async function POST(
+    request: Request,
+    { params }: { params: { workspaceId: string } }
+) {
+    try {
+        const { workspaceId } = params;
+
+        // RBAC: Assert the user natively belongs to the target tenant scope
+        const context = await requireWorkspaceAccess(workspaceId);
+
+        if (!context) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const unvalidatedBody = await request.json();
+
+        // Explicit Validation Loop
+        if (!unvalidatedBody || typeof unvalidatedBody.content !== 'string' || unvalidatedBody.content.trim() === "") {
+            return NextResponse.json({ error: "Invalid Request: 'content' is strictly required and cannot be empty" }, { status: 400 });
+        }
+
+        // MANDATORY ISOLATION SCOPE:
+        // Creation overrides arbitrary inputs and tightly couples database insertion to the secure session extraction identifier.
+        // Strictly NO AI pipelines are triggered here as per Day 5 directives.
+        const newFeedback = await prisma.feedback.create({
+            data: {
+                content: unvalidatedBody.content.trim(),
+                workspaceId: context.workspaceId,
+                source: unvalidatedBody.source || 'MANUAL',
+                title: unvalidatedBody.title || null,
+                // All other attributes adopt Prisma schema defaults natively (UNANALYZED sentiment, etc.)
+            }
+        });
+
+        return NextResponse.json({ feedback: newFeedback }, { status: 201 });
+    } catch (error) {
+        console.error("POST Feedback Creation Error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}
