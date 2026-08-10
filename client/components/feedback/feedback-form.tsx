@@ -6,9 +6,10 @@ import { FeedbackItem } from "@/types/feedback";
 interface FeedbackFormProps {
     onSubmitSuccess: (newItem: Omit<FeedbackItem, "id" | "createdAt" | "confidenceScore" | "sentiment" | "aiSummary" | "suggestedAction" | "keywords">) => void;
     onCancel: () => void;
+    isSubmitting?: boolean;
 }
 
-export const FeedbackForm = ({ onSubmitSuccess, onCancel }: FeedbackFormProps) => {
+export const FeedbackForm = ({ onSubmitSuccess, onCancel, isSubmitting = false }: FeedbackFormProps) => {
     // Form field states
     const [customerName, setCustomerName] = React.useState("");
     const [customerEmail, setCustomerEmail] = React.useState("");
@@ -138,7 +139,7 @@ export const FeedbackForm = ({ onSubmitSuccess, onCancel }: FeedbackFormProps) =
                             : "border-slate-800 focus:border-emerald-500/35"
                             }`}
                     />
-                    {touched.customerEmail && errors.customerEmail && (
+                    {touched.customerEmail && errors.email && (
                         <p className="text-[10px] text-red-400 font-sans mt-0.5">{errors.customerEmail}</p>
                     )}
                 </div>
@@ -268,6 +269,8 @@ export const FeedbackForm = ({ onSubmitSuccess, onCancel }: FeedbackFormProps) =
                 <Button
                     type="submit"
                     variant="primary"
+                    isLoading={isSubmitting}
+                    disabled={isSubmitting}
                     className="text-slate-950 font-bold text-xs h-9 px-5 bg-emerald-400 hover:bg-emerald-300 border-none transition-all cursor-pointer"
                 >
                     Submit Feedback
