@@ -39,6 +39,48 @@ export async function GET(
         if (search) {
             where.content = { contains: search, mode: "insensitive" };
         }
+        if (channel) {
+            // Validate channel enum to prevent bad queries
+            const validChannels = Object.values(FeedbackSource) as string[];
+            if (validChannels.includes(channel.toUpperCase())) {
+                where.source = channel.toUpperCase() as FeedbackSource;
+            } else {
+                return NextResponse.json({ error: "Invalid channel filter" }, { status: 400 });
+            }
+        }
+        if (sentiment) {
+            const validSentiments = Object.values(Sentiment) as string[];
+            if (validSentiments.includes(sentiment.toUpperCase())) {
+                where.sentiment = sentiment.toUpperCase() as Sentiment;
+            } else {
+                return NextResponse.json({ error: "Invalid sentiment filter" }, { status: 400 });
+            }
+        }
+        if (theme) {
+            // Reuse existing category relationship for theme
+            where.category = {
+                name: { contains: theme, mode: "insensitive" }
+            };
+        }
+        if (statusStr) {
+            const validStatuses = Object.values(FeedbackStatus) as string[];
+            if (validStatuses.includes(statusStr.toUpperCase())) {
+                where.status = statusStr.toUpperCase() as FeedbackStatus;
+            } else {
+                return NextResponse.json({ error: "Invalid status filter" }, { status: 400 });
+            }
+        }
+        if (from || to) {
+            where.createdAt = {};
+            if (from) {
+                const fd = new Date(from);
+                if (!isNaN(fd.getTime())) where.createdAt.gte = fd;
+            }
+            if (to) {
+                const td = new Date(to);
+                if (!isNaN(td.getTime())) where.createdAt.lte = td;
+            }
+        }
 
         const [feedbacks, total] = await Promise.all([
             prisma.feedback.findMany({
