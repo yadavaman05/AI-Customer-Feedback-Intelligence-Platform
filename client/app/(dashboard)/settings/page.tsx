@@ -43,6 +43,7 @@ export default function SettingsPage() {
                                 value={workspaceName}
                                 onChange={(e) => setWorkspaceName(e.target.value)}
                                 placeholder="LOOP Sandbox"
+                                disabled={isSaving}
                             />
                             <div className="space-y-1.5">
                                 <label className="block text-xs font-semibold text-slate-350 uppercase tracking-wider font-mono">Workspace Role</label>

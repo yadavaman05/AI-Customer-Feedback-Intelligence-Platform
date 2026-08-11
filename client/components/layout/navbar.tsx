@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, Bell, Search, ChevronDown, User as UserIcon, Settings as SettingsIcon, LogOut } from "lucide-react";
 import Badge from "../ui/badge";
 import { mockUser } from "@/lib/mockData";
 import Link from "next/link";
+import { api } from "@/lib/api";
 
 interface NavbarProps {
     onMenuToggle: () => void;
@@ -14,6 +15,7 @@ interface NavbarProps {
 
 export default function Navbar({ onMenuToggle, pageTitle }: NavbarProps) {
     const pathname = usePathname();
+    const router = useRouter();
 
     // UI state toggles
     const [profileOpen, setProfileOpen] = useState(false);
@@ -52,6 +54,12 @@ export default function Navbar({ onMenuToggle, pageTitle }: NavbarProps) {
         window.addEventListener("click", handleOutsideClick);
         return () => window.removeEventListener("click", handleOutsideClick);
     }, [profileOpen, notificationsOpen]);
+
+    const handleLogout = (e: React.MouseEvent) => {
+        e.preventDefault();
+        api.auth.clearToken();
+        router.push("/login");
+    };
 
     return (
         <header className="h-16 border-b border-slate-905 bg-slate-955/40 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-30">
@@ -199,14 +207,13 @@ export default function Navbar({ onMenuToggle, pageTitle }: NavbarProps) {
                                 </Link>
                             </div>
                             <div className="border-t border-slate-900 my-1" />
-                            <Link
-                                href="/login"
-                                onClick={() => setProfileOpen(false)}
-                                className="flex items-center gap-2.5 px-3 py-2 text-2xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-2.5 px-3 py-2 text-2xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors w-full text-left"
                             >
-                                <LogOut className="h-3.5 w-3.5 text-red-500" />
+                                <LogOut className="h-3.5 w-3.5 text-red-505" />
                                 Sign Out
-                            </Link>
+                            </button>
                         </div>
                     )}
                 </div>

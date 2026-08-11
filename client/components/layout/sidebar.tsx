@@ -13,6 +13,8 @@ import {
     Home
 } from "lucide-react";
 import { mockUser } from "@/lib/mockData";
+import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 export const navigationItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -30,6 +32,13 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, className }: SidebarProps) {
     const pathname = usePathname();
+    const router = useRouter();
+
+    const handleLogout = (e: React.MouseEvent) => {
+        e.preventDefault();
+        api.auth.clearToken();
+        router.push("/login");
+    };
 
     return (
         <>
@@ -37,7 +46,7 @@ export default function Sidebar({ isOpen, onClose, className }: SidebarProps) {
             {isOpen && (
                 <div
                     onClick={onClose}
-                    className="fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-xs xl:hidden"
+                    className="fixed inset-0 z-30 bg-slate-955/60 backdrop-blur-xs xl:hidden"
                 />
             )}
             <aside
@@ -50,7 +59,7 @@ export default function Sidebar({ isOpen, onClose, className }: SidebarProps) {
                 {/* Sidebar Header */}
                 <div className="flex h-16 items-center justify-between px-6 border-b border-slate-900">
                     <Link href="/dashboard" className="flex items-center gap-2 group">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 font-bold text-slate-950 shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-all">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 font-bold text-slate-955 shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-all">
                             L
                         </div>
                         <span className="text-xl font-bold tracking-tight text-white group-hover:text-emerald-400 transition-colors">
@@ -83,14 +92,14 @@ export default function Sidebar({ isOpen, onClose, className }: SidebarProps) {
                                 className={cn(
                                     "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs md:text-sm font-medium transition-all group border-l-2 border-transparent",
                                     isActive
-                                        ? "bg-emerald-500/10 text-emerald-450 border-emerald-500"
+                                        ? "bg-emerald-500/10 text-emerald-455 border-emerald-500"
                                         : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
                                 )}
                             >
                                 <Icon
                                     className={cn(
                                         "h-4 w-4 md:h-5 md:w-5 transition-colors",
-                                        isActive ? "text-emerald-450" : "text-slate-400 group-hover:text-slate-200"
+                                        isActive ? "text-emerald-455" : "text-slate-400 group-hover:text-slate-200"
                                     )}
                                 />
                                 {item.name}
@@ -112,7 +121,7 @@ export default function Sidebar({ isOpen, onClose, className }: SidebarProps) {
                 {/* Sidebar Footer */}
                 <div className="p-4 border-t border-slate-900 bg-slate-955/40">
                     <div className="flex items-center gap-3 px-2 py-1.5 rounded-lg mb-3">
-                        <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center font-bold text-emerald-450 border border-emerald-500/30 text-xs shadow-inner">
+                        <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center font-bold text-emerald-455 border border-emerald-500/30 text-xs shadow-inner">
                             {mockUser.avatarInitials}
                         </div>
                         <div className="flex-1 overflow-hidden">
@@ -120,12 +129,12 @@ export default function Sidebar({ isOpen, onClose, className }: SidebarProps) {
                             <p className="text-4xs text-slate-500 truncate">{mockUser.email}</p>
                         </div>
                     </div>
-                    <Link
-                        href="/login"
-                        className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900 transition-colors cursor-pointer text-left"
                     >
                         Sign Out
-                    </Link>
+                    </button>
                 </div>
             </aside>
         </>

@@ -7,6 +7,7 @@ import { KeyRound, Mail, Eye, EyeOff, AlertCircle } from "lucide-react";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Card, { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -59,6 +60,7 @@ export default function LoginPage() {
             setIsLoading(false);
             // Simulate demo authentication
             if (email === "demo.john@loop.ai" && password === "password123") {
+                api.auth.setToken("lp_demo_token");
                 router.push("/dashboard");
             } else {
                 setFormError("Invalid email or password. Use demo.john@loop.ai / password123");
@@ -111,10 +113,12 @@ export default function LoginPage() {
                                 onChange={(e) => {
                                     setEmail(e.target.value);
                                     if (emailError) setEmailError("");
+                                    if (formError) setFormError("");
                                 }}
                                 error={emailError}
                                 placeholder="you@company.com"
                                 icon={<Mail className="h-4 w-4" />}
+                                disabled={isLoading}
                             />
 
                             <Input
@@ -125,15 +129,18 @@ export default function LoginPage() {
                                 onChange={(e) => {
                                     setPassword(e.target.value);
                                     if (passwordError) setPasswordError("");
+                                    if (formError) setFormError("");
                                 }}
                                 error={passwordError}
                                 placeholder="••••••••"
                                 icon={<KeyRound className="h-4 w-4" />}
+                                disabled={isLoading}
                                 rightElement={
                                     <button
                                         type="button"
+                                        disabled={isLoading}
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="text-slate-400 hover:text-slate-205 focus:outline-none transition-colors"
+                                        className="text-slate-400 hover:text-slate-200 focus:outline-none transition-colors"
                                     >
                                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                     </button>

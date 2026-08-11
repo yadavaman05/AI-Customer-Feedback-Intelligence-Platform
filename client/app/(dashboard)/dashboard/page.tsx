@@ -19,7 +19,7 @@ import CategorySplit from "@/components/charts/category-split";
 import RatingDistribution from "@/components/charts/rating-distribution";
 
 export default function DashboardPage() {
-    const [connectionMode, setConnectionMode] = useState<"mock" | "live">("mock");
+    const [connectionMode, setConnectionMode] = useState<"mock" | "live">("live");
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 

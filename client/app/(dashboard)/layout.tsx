@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import Navbar from "@/components/layout/navbar";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { formatCapitalize } from "@/utils/format";
+import { api } from "@/lib/api";
+import Spinner from "@/components/ui/spinner";
 
 export default function DashboardLayout({
     children,
@@ -12,7 +14,18 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
     const pathname = usePathname();
+    const router = useRouter();
+
+    useEffect(() => {
+        const token = api.auth.getToken();
+        if (!token) {
+            router.replace("/login");
+        } else {
+            setIsCheckingAuth(false);
+        }
+    }, [router]);
 
     // Generate page title based on path
     const getPageTitle = (path: string) => {
@@ -28,6 +41,17 @@ export default function DashboardLayout({
         if (segments.length === 0) return "Overview";
         return formatCapitalize(segments[segments.length - 1]);
     };
+
+    if (isCheckingAuth) {
+        return (
+            <div className="flex h-screen w-screen items-center justify-center bg-background text-slate-105 font-sans">
+                <div className="flex flex-col items-center gap-3">
+                    <Spinner size="md" className="text-emerald-500" />
+                    <span className="text-xs text-slate-400 font-mono">Verifying credentials...</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen w-screen overflow-hidden bg-background font-sans grid-bg text-slate-105 antialiased">
