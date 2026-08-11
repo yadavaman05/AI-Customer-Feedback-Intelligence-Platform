@@ -1,30 +1,111 @@
 import { NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/rbac";
 import prisma from "@/lib/prisma";
+import { FeedbackSource, Sentiment, FeedbackStatus } from "@prisma/client";
 
 export async function GET(
     request: Request,
     { params }: { params: { workspaceId: string } }
 ) {
     try {
-        // RBAC: Any valid role (Owner, Admin, Member, Viewer) can read feedback globally within their tenant scope
         const context = await requireWorkspaceAccess(params.workspaceId);
-
         if (!context) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // MANDATORY ISOLATION SCOPE:
-        // Regardless of query parameters or user intent, the backend statically scopes response sets by the validated tenant ID.
-        const feedbacks = await prisma.feedback.findMany({
-            where: {
-                workspaceId: context.workspaceId, // Absolute boundary
-            },
-            orderBy: { createdAt: "desc" }
-        });
+        const url = new URL(request.url);
 
-        return NextResponse.json({ feedbacks }, { status: 200 });
+        // Pagination
+        const page = parseInt(url.searchParams.get("page") || "1", 10);
+        let pageSize = parseInt(url.searchParams.get("pageSize") || "20", 10);
+        if (isNaN(pageSize) || pageSize < 1) pageSize = 20;
+        const take = Math.min(pageSize, 100); // Prevent unlimited query size
+        const skip = Math.max(page - 1, 0) * take;
+
+        // Filters (Day 8 & 9)
+        const search = url.searchParams.get("search");
+        const channel = url.searchParams.get("channel");
+        const sentiment = url.searchParams.get("sentiment");
+        const theme = url.searchParams.get("theme");
+        const statusStr = url.searchParams.get("status");
+        const from = url.searchParams.get("from");
+        const to = url.searchParams.get("to");
+
+        // Base where: absolute workspace boundary (CRITICAL: NEVER replace)
+        const where: any = {
+            workspaceId: context.workspaceId,
+        };
+
+        if (search) {
+            where.content = { contains: search, mode: "insensitive" };
+        }
+        if (channel) {
+            // Validate channel enum to prevent bad queries
+            const validChannels = Object.values(FeedbackSource) as string[];
+            if (validChannels.includes(channel.toUpperCase())) {
+                where.source = channel.toUpperCase() as FeedbackSource;
+            } else {
+                return NextResponse.json({ error: "Invalid channel filter" }, { status: 400 });
+            }
+        }
+        if (sentiment) {
+            const validSentiments = Object.values(Sentiment) as string[];
+            if (validSentiments.includes(sentiment.toUpperCase())) {
+                where.sentiment = sentiment.toUpperCase() as Sentiment;
+            } else {
+                return NextResponse.json({ error: "Invalid sentiment filter" }, { status: 400 });
+            }
+        }
+        if (theme) {
+            // Reuse existing category relationship for theme
+            where.category = {
+                name: { contains: theme, mode: "insensitive" }
+            };
+        }
+        if (statusStr) {
+            const validStatuses = Object.values(FeedbackStatus) as string[];
+            if (validStatuses.includes(statusStr.toUpperCase())) {
+                where.status = statusStr.toUpperCase() as FeedbackStatus;
+            } else {
+                return NextResponse.json({ error: "Invalid status filter" }, { status: 400 });
+            }
+        }
+        if (from || to) {
+            where.createdAt = {};
+            if (from) {
+                const fd = new Date(from);
+                if (!isNaN(fd.getTime())) where.createdAt.gte = fd;
+            }
+            if (to) {
+                const td = new Date(to);
+                if (!isNaN(td.getTime())) where.createdAt.lte = td;
+            }
+        }
+
+        const [feedbacks, total] = await Promise.all([
+            prisma.feedback.findMany({
+                where,
+                orderBy: { createdAt: "desc" },
+                skip,
+                take
+            }),
+            prisma.feedback.count({ where })
+        ]);
+
+        const totalPages = Math.ceil(total / take);
+
+        return NextResponse.json({
+            data: feedbacks,
+            pagination: {
+                page,
+                pageSize: take,
+                total,
+                totalPages
+            }
+        }, { status: 200 });
+
     } catch (error) {
+        console.error("GET Feedbacks Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
@@ -35,8 +116,6 @@ export async function POST(
 ) {
     try {
         const { workspaceId } = params;
-
-        // RBAC: Assert the user natively belongs to the target tenant scope
         const context = await requireWorkspaceAccess(workspaceId);
 
         if (!context) {
@@ -45,21 +124,16 @@ export async function POST(
 
         const unvalidatedBody = await request.json();
 
-        // Explicit Validation Loop
         if (!unvalidatedBody || typeof unvalidatedBody.content !== 'string' || unvalidatedBody.content.trim() === "") {
             return NextResponse.json({ error: "Invalid Request: 'content' is strictly required and cannot be empty" }, { status: 400 });
         }
 
-        // MANDATORY ISOLATION SCOPE:
-        // Creation overrides arbitrary inputs and tightly couples database insertion to the secure session extraction identifier.
-        // Strictly NO AI pipelines are triggered here as per Day 5 directives.
         const newFeedback = await prisma.feedback.create({
             data: {
                 content: unvalidatedBody.content.trim(),
                 workspaceId: context.workspaceId,
                 source: unvalidatedBody.source || 'MANUAL',
                 title: unvalidatedBody.title || null,
-                // All other attributes adopt Prisma schema defaults natively (UNANALYZED sentiment, etc.)
             }
         });
 

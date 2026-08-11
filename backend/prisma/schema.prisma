@@ -30,6 +30,13 @@ enum Sentiment {
   UNANALYZED
 }
 
+enum FeedbackStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
 model User {
   id            String    @id @default(uuid())
   name          String?
@@ -119,6 +126,7 @@ model Feedback {
   content   String         @db.Text
   source    FeedbackSource @default(MANUAL)
   sentiment Sentiment      @default(UNANALYZED)
+  status    FeedbackStatus @default(OPEN)
   rawData   Json?
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
