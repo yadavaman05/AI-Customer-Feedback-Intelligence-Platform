@@ -7,6 +7,7 @@ import { KeyRound, Mail, User, Eye, EyeOff, AlertCircle } from "lucide-react";
 import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Card, { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { api } from "@/lib/api";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -71,6 +72,7 @@ export default function SignupPage() {
             if (email.endsWith("@trashy.com")) {
                 setFormError("Feedback aggregation is blocked for temporary email domains. Use corporate domain.");
             } else {
+                api.auth.setToken("lp_demo_token");
                 router.push("/dashboard");
             }
         }, 1500);

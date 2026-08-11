@@ -85,7 +85,8 @@ export default function ReportsPage() {
                                     <select
                                         value={timeframe}
                                         onChange={(e) => setTimeframe(e.target.value)}
-                                        className="bg-transparent outline-none border-none text-xs text-slate-200 cursor-pointer w-full"
+                                        disabled={isGenerating}
+                                        className="bg-transparent outline-none border-none text-xs text-slate-200 cursor-pointer w-full disabled:opacity-50"
                                     >
                                         <option value="last_7_days" className="bg-slate-950">Last 7 Days</option>
                                         <option value="last_30_days" className="bg-slate-950">Last 30 Days</option>
@@ -101,7 +102,8 @@ export default function ReportsPage() {
                                     <select
                                         value={category}
                                         onChange={(e) => setCategory(e.target.value)}
-                                        className="bg-transparent outline-none border-none text-xs text-slate-200 cursor-pointer w-full"
+                                        disabled={isGenerating}
+                                        className="bg-transparent outline-none border-none text-xs text-slate-200 cursor-pointer w-full disabled:opacity-50"
                                     >
                                         <option value="all" className="bg-slate-950">All Categories</option>
                                         <option value="bug" className="bg-slate-950">Bugs</option>

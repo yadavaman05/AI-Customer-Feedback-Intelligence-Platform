@@ -41,6 +41,7 @@ class ApiClient {
                 // Prepare for auth eviction or redirect if needed
                 if (typeof window !== "undefined") {
                     localStorage.removeItem("loop_auth_token");
+                    window.location.href = "/login";
                 }
             }
 
@@ -179,6 +180,13 @@ class ApiClient {
     public analytics = {
         getSummary: async (): Promise<ApiResponse<AnalyticsSummary>> => {
             return this.get<ApiResponse<AnalyticsSummary>>("/api/analytics");
+        },
+    };
+
+    // Chat Resource
+    public chat = {
+        ask: async (query: string): Promise<ApiResponse<{ response: string }>> => {
+            return this.post<ApiResponse<{ response: string }>>("/api/chat", { query });
         },
     };
 }

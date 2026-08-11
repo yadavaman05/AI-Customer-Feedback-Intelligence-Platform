@@ -29,7 +29,7 @@ export default function FeedbackInboxPage() {
     const [items, setItems] = useState<FeedbackItem[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [connectionMode, setConnectionMode] = useState<"mock" | "live">("mock");
+    const [connectionMode, setConnectionMode] = useState<"mock" | "live">("live");
 
     const [selectedItem, setSelectedItem] = useState<FeedbackItem | null>(null);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
