@@ -3,6 +3,8 @@ import { requireWorkspaceAccess } from "@/lib/rbac";
 import prisma from "@/lib/prisma";
 import Papa from "papaparse";
 import { FeedbackSource } from "@prisma/client";
+import { classifyFeedback } from "@/lib/ai/claude";
+import { storeFeedbackClassification } from "@/lib/ai/store-classification";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
 
@@ -102,20 +104,29 @@ export async function POST(
 
         // 7. Bulk Insertion securely using context.workspaceId
         let imported = 0;
+        let classified = 0;
+        let classificationFailures = 0;
 
         if (validRows.length > 0) {
-            try {
-                const result = await prisma.feedback.createMany({
-                    data: validRows,
-                    skipDuplicates: false,
-                });
-                imported = result.count;
-            } catch (error) {
-                console.error("Bulk insertion failed:", error);
+            for (const row of validRows) {
+                try {
+                    const created = await prisma.feedback.create({
+                        data: row
+                    });
+                    imported++;
 
-                return NextResponse.json({
-                    error: "A database error occurred during import. No rows were imported."
-                }, { status: 500 });
+                    // Classify
+                    const classification = await classifyFeedback(created.content);
+                    if (classification) {
+                        const stored = await storeFeedbackClassification(created.id, context.workspaceId, classification);
+                        if (stored) classified++;
+                        else classificationFailures++;
+                    } else {
+                        classificationFailures++;
+                    }
+                } catch (error) {
+                    failures.push({ row: 0, reason: "Database error during row creation" });
+                }
             }
         }
 
@@ -125,6 +136,8 @@ export async function POST(
             summary: {
                 totalRows: rows.length,
                 imported,
+                classified,
+                classificationFailures,
                 failed: failures.length,
             },
             failures
