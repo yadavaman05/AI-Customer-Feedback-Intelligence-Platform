@@ -19,18 +19,32 @@ export async function GET(
             where: { workspaceId: context.workspaceId }
         });
 
-        // Generate placeholder trend data since building a complex time-series group-by
-        // without an explicit SQL raw query or pg-specific function is tricky in Prisma.
-        // Dashboard can use this for Recharts line/area charts.
-        const today = new Date();
-        const volumeTrend = Array.from({ length: 7 }).map((_, i) => {
-            const d = new Date();
-            d.setDate(today.getDate() - (6 - i));
-            return {
-                date: d.toISOString().split('T')[0],
-                count: Math.floor(Math.random() * 10) // Placeholder per requirements
-            };
+        // Real chronological bucketing for last 7 days
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+
+        const currentData = await prisma.feedback.findMany({
+            where: {
+                workspaceId: context.workspaceId,
+                createdAt: { gte: startDate, lt: endDate }
+            },
+            select: { createdAt: true }
         });
+
+        const buckets: Record<string, number> = {};
+        for (const f of currentData) {
+            const dateKey = f.createdAt.toISOString().split('T')[0];
+            buckets[dateKey] = (buckets[dateKey] || 0) + 1;
+        }
+
+        const volumeTrend = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            volumeTrend.push({ date: dateStr, count: buckets[dateStr] || 0 });
+        }
 
         // 2. Sentiment Distribution
         const sentimentGrouping = await prisma.feedback.groupBy({
@@ -71,7 +85,7 @@ export async function GET(
         return NextResponse.json({
             volume: {
                 total: totalVolume,
-                trend: volumeTrend // Placeholder, per requirement "placeholder data allowed"
+                trend: volumeTrend
             },
             sentiment,
             topThemes

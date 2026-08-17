@@ -135,3 +135,53 @@ ${contextStr}
         return { answer: "An error occurred while generating the answer using the semantic context.", citations: [] };
     }
 }
+
+const vocSchema = z.object({
+    narrative: z.string().describe("A concise 3-4 paragraph Voice-of-Customer report outlining overall picture, dominant sentiment, themes, complaints, and recommendations.")
+});
+
+export async function generateVoCNarrative(stats: any) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+        throw new Error("ANTHROPIC_API_KEY is not configured.");
+    }
+
+    try {
+        const response = await anthropic.messages.create({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 1500,
+            system: `You are an expert Customer Success Analyst. Given the provided real statistical data about customer feedback over a period, generate a concise Voice-of-Customer narrative.
+            
+RULES:
+1. Do not invent statistics. ONLY interpret the supplied numbers.
+2. Structure the narrative engagingly into readable paragraphs.
+3. Call out positive signals, problems, and actionable recommendations.
+            `,
+            messages: [
+                { role: "user", content: `Customer Feedback Stats:\n${JSON.stringify(stats, null, 2)}` }
+            ],
+            tools: [
+                {
+                    name: "output_narrative",
+                    description: "Output the generated VoC narrative strictly conforming to schema.",
+                    input_schema: {
+                        type: "object",
+                        properties: {
+                            narrative: { type: "string" }
+                        },
+                        required: ["narrative"]
+                    }
+                }
+            ],
+            tool_choice: { type: "tool", name: "output_narrative" }
+        });
+
+        const toolCall = response.content.find(c => c.type === "tool_use");
+        if (!toolCall || toolCall.type !== "tool_use") return "Failed to generate narrative.";
+
+        const parsed = vocSchema.parse(toolCall.input);
+        return parsed.narrative;
+    } catch (error) {
+        console.error("Claude VoC generation error:", error);
+        return "An error occurred generating the narrative.";
+    }
+}
