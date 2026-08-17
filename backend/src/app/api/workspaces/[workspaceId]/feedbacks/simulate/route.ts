@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { FeedbackSource, Sentiment } from "@prisma/client";
 import { classifyFeedback } from "@/lib/ai/claude";
 import { storeFeedbackClassification } from "@/lib/ai/store-classification";
+import { generateEmbedding, storeFeedbackEmbedding } from "@/lib/ai/embeddings";
 
 export async function POST(
     request: Request,
@@ -75,6 +76,13 @@ export async function POST(
                 if (classification) {
                     const stored = await storeFeedbackClassification(created.id, context.workspaceId, classification);
                     if (stored) classifiedCount++;
+                }
+
+                try {
+                    const embedding = await generateEmbedding(created.content);
+                    await storeFeedbackEmbedding(created.id, embedding);
+                } catch (e) {
+                    // safe skip
                 }
             } catch (err) {
                 console.error("Simulation error", err);

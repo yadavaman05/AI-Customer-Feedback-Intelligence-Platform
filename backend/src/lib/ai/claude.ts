@@ -64,3 +64,74 @@ Structure:
         return null;
     }
 }
+
+const groundedAnswerSchema = z.object({
+    answer: z.string().describe("Your comprehensive answer answering the query solely based on the provided feedback context."),
+    citations: z.array(z.string()).describe("An array of actual feedback IDs that directly supported your factual claims. Only include IDs explicitly provided.")
+});
+
+export async function generateGroundedAnswer(question: string, context: any[]) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+        throw new Error("ANTHROPIC_API_KEY is not configured.");
+    }
+
+    const contextStr = context.map((item, index) => {
+        return `[ID: ${item.id}]\nContent: ${item.content}\nSource: ${item.source}\nCategory: ${item.category || 'None'}\nSimilarity: ${item.similarity.toFixed(2)}\n---`;
+    }).join('\n');
+
+    try {
+        const response = await anthropic.messages.create({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 1500,
+            system: `You are a Customer Feedback Intelligence Assistant. Retrieve the answer to the user's question securely using ONLY the context provided below.
+            
+RULES:
+1. Use ONLY the supplied feedback context. Do not invent facts.
+2. If the context is insufficient to fully answer the question, state that clearly ("I cannot fully answer this based on the existing feedback.").
+3. Detail uncertainty where applicable.
+4. Output strict JSON exactly matching the schema. Your citation IDs must perfectly match the provided IDs.
+
+Context Feedback:
+${contextStr}
+            `,
+            messages: [
+                { role: "user", content: `Question: ${question}` }
+            ],
+            tools: [
+                {
+                    name: "output_answer",
+                    description: "Output the grounded answer with proper dataset citations.",
+                    input_schema: {
+                        type: "object",
+                        properties: {
+                            answer: { type: "string" },
+                            citations: { type: "array", items: { type: "string" } }
+                        },
+                        required: ["answer", "citations"]
+                    }
+                }
+            ],
+            tool_choice: { type: "tool", name: "output_answer" }
+        });
+
+        const toolCall = response.content.find(c => c.type === "tool_use");
+        if (!toolCall || toolCall.type !== "tool_use") return { answer: "Failed to generate grounded answer.", citations: [] };
+
+        const parsed = groundedAnswerSchema.parse(toolCall.input);
+
+        // Enrich citations with actual retrieved objects matching Zod outputs
+        const enrichedCitations = parsed.citations.map(id => {
+            const c = context.find(item => item.id === id);
+            if (c) return { feedbackId: c.id, content: c.content, source: c.source, relevanceScore: c.similarity };
+            return null;
+        }).filter(Boolean);
+
+        return {
+            answer: parsed.answer,
+            citations: enrichedCitations
+        };
+    } catch (error) {
+        console.error("Claude Grounded QA Error:", error);
+        return { answer: "An error occurred while generating the answer using the semantic context.", citations: [] };
+    }
+}

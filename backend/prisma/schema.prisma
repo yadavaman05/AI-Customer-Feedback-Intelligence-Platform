@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 enum Role {
@@ -139,6 +141,7 @@ model Feedback {
 
   tags      FeedbackTag[]
   aiInsight AIInsight?
+  embedding FeedbackEmbedding?
 
   @@index([workspaceId])
   @@index([createdAt])
@@ -215,4 +218,12 @@ model AuditLog {
 
   @@index([workspaceId])
   @@index([createdAt])
+}
+
+model FeedbackEmbedding {
+  id         String   @id @default(uuid())
+  embedding  Unsupported("vector(1536)")
+  
+  feedbackId String   @unique
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
 }

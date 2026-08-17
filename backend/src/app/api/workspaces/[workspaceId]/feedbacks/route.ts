@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { FeedbackSource, Sentiment, FeedbackStatus } from "@prisma/client";
 import { classifyFeedback } from "@/lib/ai/claude";
 import { storeFeedbackClassification } from "@/lib/ai/store-classification";
+import { generateEmbedding, storeFeedbackEmbedding } from "@/lib/ai/embeddings";
 
 export async function GET(
     request: Request,
@@ -143,6 +144,14 @@ export async function POST(
         const classification = await classifyFeedback(newFeedback.content);
         if (classification) {
             await storeFeedbackClassification(newFeedback.id, context.workspaceId, classification);
+        }
+
+        // Day 15 Embedding securely
+        try {
+            const embedding = await generateEmbedding(newFeedback.content);
+            await storeFeedbackEmbedding(newFeedback.id, embedding);
+        } catch (e) {
+            console.error("Embedding generation skipped/failed:", e);
         }
 
         return NextResponse.json({ feedback: newFeedback }, { status: 201 });

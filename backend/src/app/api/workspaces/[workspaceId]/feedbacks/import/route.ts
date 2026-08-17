@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { FeedbackSource } from "@prisma/client";
 import { classifyFeedback } from "@/lib/ai/claude";
 import { storeFeedbackClassification } from "@/lib/ai/store-classification";
+import { generateEmbedding, storeFeedbackEmbedding } from "@/lib/ai/embeddings";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
 
@@ -123,6 +124,14 @@ export async function POST(
                         else classificationFailures++;
                     } else {
                         classificationFailures++;
+                    }
+
+                    // Embed
+                    try {
+                        const embedding = await generateEmbedding(created.content);
+                        await storeFeedbackEmbedding(created.id, embedding);
+                    } catch (e) {
+                        // safe skip
                     }
                 } catch (error) {
                     failures.push({ row: 0, reason: "Database error during row creation" });
