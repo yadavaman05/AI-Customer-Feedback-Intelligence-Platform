@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/rbac";
 import prisma from "@/lib/prisma";
 import { FeedbackSource, Sentiment } from "@prisma/client";
+import { classifyFeedback } from "@/lib/ai/claude";
+import { storeFeedbackClassification } from "@/lib/ai/store-classification";
+import { generateEmbedding, storeFeedbackEmbedding } from "@/lib/ai/embeddings";
 
 export async function POST(
     request: Request,
@@ -61,15 +64,36 @@ export async function POST(
             workspaceId: context.workspaceId,
         }));
 
-        const result = await prisma.feedback.createMany({
-            data: recordsToInsert,
-            skipDuplicates: false,
-        });
+        let generatedCount = 0;
+        let classifiedCount = 0;
+
+        for (const data of recordsToInsert) {
+            try {
+                const created = await prisma.feedback.create({ data });
+                generatedCount++;
+
+                const classification = await classifyFeedback(created.content);
+                if (classification) {
+                    const stored = await storeFeedbackClassification(created.id, context.workspaceId, classification);
+                    if (stored) classifiedCount++;
+                }
+
+                try {
+                    const embedding = await generateEmbedding(created.content);
+                    await storeFeedbackEmbedding(created.id, embedding);
+                } catch (e) {
+                    // safe skip
+                }
+            } catch (err) {
+                console.error("Simulation error", err);
+            }
+        }
 
         return NextResponse.json({
             success: true,
             summary: {
-                totalGenerated: result.count,
+                totalGenerated: generatedCount,
+                totalClassified: classifiedCount,
                 message: "Successfully generated simulated channel feedback."
             }
         }, { status: 201 });
