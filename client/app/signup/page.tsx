@@ -60,22 +60,64 @@ export default function SignupPage() {
         return isValid;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!validateForm()) return;
 
         setIsLoading(true);
-        setTimeout(() => {
-            setIsLoading(false);
-            // Simulate workspace generation check
-            if (email.endsWith("@trashy.com")) {
-                setFormError("Feedback aggregation is blocked for temporary email domains. Use corporate domain.");
-            } else {
-                api.auth.setToken("lp_demo_token");
-                router.push("/dashboard");
+        setFormError("");
+
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const response = await fetch(`${apiUrl}/api/auth/signup`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ name, email, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setFormError(data.error || "Failed to create account.");
+                setIsLoading(false);
+                return;
             }
-        }, 1500);
+
+            // Automatically log in
+            const loginRes = await fetch(`${apiUrl}/api/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const loginData = await loginRes.json();
+
+            if (!loginRes.ok) {
+                setFormError("Account created successfully, but automatic login failed. Please sign in manually.");
+                setIsLoading(false);
+                return;
+            }
+
+            api.auth.setToken(loginData.token);
+            if (loginData.workspace) {
+                localStorage.setItem("loop_workspace_id", loginData.workspace.id);
+                localStorage.setItem("loop_workspace_slug", loginData.workspace.slug);
+            }
+            localStorage.setItem("loop_user_name", loginData.user.name || "");
+            localStorage.setItem("loop_user_email", loginData.user.email || "");
+
+            router.push("/dashboard");
+        } catch (err) {
+            console.error("Signup failed:", err);
+            setFormError("Network connection error. Ensure backend is running.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

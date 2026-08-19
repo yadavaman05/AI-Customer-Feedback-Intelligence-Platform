@@ -132,6 +132,13 @@ class ApiClient {
         },
     };
 
+    private getWorkspaceId(): string | null {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("loop_workspace_id");
+        }
+        return null;
+    }
+
     // Feedback Resource
     public feedback = {
         list: async (params?: {
@@ -144,35 +151,148 @@ class ApiClient {
             page?: number;
             limit?: number;
         }): Promise<ApiResponse<PaginatedResponse<FeedbackItem>>> => {
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected.");
+            }
+
             const queryParams = new URLSearchParams();
             if (params) {
-                Object.entries(params).forEach(([key, val]) => {
-                    if (val !== undefined && val !== null && val !== "all" && val !== "") {
-                        queryParams.append(key, String(val));
-                    }
-                });
+                if (params.query) queryParams.append("search", params.query);
+                if (params.source && params.source !== "all") queryParams.append("channel", params.source);
+                if (params.sentiment && params.sentiment !== "all") queryParams.append("sentiment", params.sentiment);
+                if (params.status && params.status !== "all") queryParams.append("status", params.status);
+                if (params.page) queryParams.append("page", String(params.page));
+                if (params.limit) queryParams.append("pageSize", String(params.limit));
             }
             const queryStr = queryParams.toString();
-            return this.get<ApiResponse<PaginatedResponse<FeedbackItem>>>(
-                `/api/feedback${queryStr ? `?${queryStr}` : ""}`
-            );
+
+            const resData = await this.get<{
+                data: any[];
+                pagination: {
+                    page: number;
+                    pageSize: number;
+                    total: number;
+                    totalPages: number;
+                }
+            }>(`/api/workspaces/${workspaceId}/feedbacks${queryStr ? `?${queryStr}` : ""}`);
+
+            const items: FeedbackItem[] = resData.data.map((item: any) => ({
+                id: item.id,
+                source: (item.source || "manual").toLowerCase() as any,
+                customerName: item.rawData?.customerName || "Ingested Customer",
+                customerEmail: item.rawData?.customerEmail || "customer@ingest.loop",
+                sentiment: (item.sentiment || "neutral").toLowerCase() as any,
+                category: item.rawData?.category || "performance",
+                content: item.content,
+                status: (item.status || "new").toLowerCase() as any,
+                createdAt: item.createdAt,
+                confidenceScore: 0.95,
+                rating: item.rawData?.rating || 4,
+            }));
+
+            return {
+                success: true,
+                data: {
+                    items,
+                    total: resData.pagination.total,
+                    page: resData.pagination.page,
+                    limit: resData.pagination.pageSize,
+                    pages: resData.pagination.totalPages
+                }
+            };
         },
 
         get: async (id: string): Promise<ApiResponse<FeedbackItem>> => {
-            return this.get<ApiResponse<FeedbackItem>>(`/api/feedback/${id}`);
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected.");
+            }
+
+            const item: any = await this.get<any>(`/api/workspaces/${workspaceId}/feedbacks/${id}`);
+
+            return {
+                success: true,
+                data: {
+                    id: item.id,
+                    source: (item.source || "manual").toLowerCase() as any,
+                    customerName: item.rawData?.customerName || "Ingested Customer",
+                    customerEmail: item.rawData?.customerEmail || "customer@ingest.loop",
+                    sentiment: (item.sentiment || "neutral").toLowerCase() as any,
+                    category: item.rawData?.category || "performance",
+                    content: item.content,
+                    status: (item.status || "new").toLowerCase() as any,
+                    createdAt: item.createdAt,
+                    confidenceScore: 0.95,
+                    rating: item.rawData?.rating || 4,
+                }
+            };
         },
 
         create: async (
             feedback: Omit<FeedbackItem, "id" | "createdAt" | "confidenceScore" | "sentiment" | "aiSummary" | "suggestedAction" | "keywords" | "status">
         ): Promise<ApiResponse<FeedbackItem>> => {
-            return this.post<ApiResponse<FeedbackItem>>("/api/feedback", feedback);
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected.");
+            }
+
+            // Map frontend payload to backend structure, storing client-only details in rawData JSON
+            const payload = {
+                content: feedback.content,
+                title: feedback.customerName ? `Feedback from ${feedback.customerName}` : null,
+                source: feedback.source?.toUpperCase() || "MANUAL",
+                rawData: {
+                    customerName: feedback.customerName,
+                    customerEmail: feedback.customerEmail,
+                    category: feedback.category,
+                    rating: feedback.rating,
+                }
+            };
+
+            const res: any = await this.post<any>(`/api/workspaces/${workspaceId}/feedbacks`, payload);
+            const created = res.feedback;
+
+            return {
+                success: true,
+                data: {
+                    id: created.id,
+                    source: (created.source || "manual").toLowerCase() as any,
+                    customerName: feedback.customerName,
+                    customerEmail: feedback.customerEmail,
+                    sentiment: (created.sentiment || "neutral").toLowerCase() as any,
+                    category: feedback.category as any,
+                    content: created.content,
+                    status: (created.status || "new").toLowerCase() as any,
+                    createdAt: created.createdAt,
+                    confidenceScore: 0.95,
+                }
+            };
         },
 
         updateStatus: async (
             id: string,
             status: "new" | "in_progress" | "resolved"
         ): Promise<ApiResponse<FeedbackItem>> => {
-            return this.patch<ApiResponse<FeedbackItem>>(`/api/feedback/${id}`, { status });
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected.");
+            }
+
+            // Map frontend status to database status enums: 'new' -> 'OPEN', 'in_progress' -> 'IN_PROGRESS', 'resolved' -> 'RESOLVED'
+            let mappedStatus = "OPEN";
+            if (status === "in_progress") mappedStatus = "IN_PROGRESS";
+            else if (status === "resolved") mappedStatus = "RESOLVED";
+
+            const res: any = await this.patch<any>(`/api/workspaces/${workspaceId}/feedbacks/${id}`, { status: mappedStatus });
+
+            return {
+                success: true,
+                data: {
+                    id,
+                    status,
+                } as any
+            };
         },
     };
 

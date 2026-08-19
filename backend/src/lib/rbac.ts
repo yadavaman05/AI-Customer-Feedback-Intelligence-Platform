@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { decode } from "next-auth/jwt";
+import { headers } from "next/headers";
 
 export type WorkspaceContext = {
     userId: string;
@@ -10,12 +12,47 @@ export type WorkspaceContext = {
 };
 
 /**
- * Retrieves the currently authenticated user from NextAuth.
+ * Retrieves the currently authenticated user from NextAuth or Bearer token.
  * Returns null if the user is unauthenticated.
  */
 export async function getCurrentUser() {
-    const session = await getServerSession(authOptions);
-    return session?.user ?? null;
+    // 1. Try standard cookie-based session
+    try {
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            return session.user;
+        }
+    } catch (e) {
+        console.error("NextAuth session check failed:", e);
+    }
+
+    // 2. Try Authorization: Bearer token in headers
+    try {
+        const reqHeaders = headers();
+        const authHeader = reqHeaders.get("authorization");
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const tokenString = authHeader.substring(7);
+            const secret = process.env.NEXTAUTH_SECRET;
+            if (secret) {
+                const decoded = await decode({
+                    token: tokenString,
+                    secret,
+                });
+                if (decoded) {
+                    return {
+                        id: (decoded.id as string) || (decoded.sub as string),
+                        name: decoded.name as string | null,
+                        email: decoded.email as string,
+                        image: decoded.picture as string | null,
+                    };
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Bearer token decode failed:", e);
+    }
+
+    return null;
 }
 
 /**
