@@ -81,7 +81,7 @@ export async function POST(
                 try {
                     const embedding = await generateEmbedding(created.content);
                     await storeFeedbackEmbedding(created.id, embedding);
-                } catch (e) {
+                } catch {
                     // safe skip
                 }
             } catch (err) {

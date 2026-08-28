@@ -38,15 +38,24 @@ export async function storeFeedbackEmbedding(feedbackId: string, embedding: numb
     return true;
 }
 
+export interface SimilarFeedbackResult {
+    id: string;
+    content: string;
+    source: string;
+    categoryId: string | null;
+    category: string | null;
+    similarity: number;
+}
+
 export async function searchSimilarFeedback(
     workspaceId: string,
     questionEmbedding: number[],
     topK: number = 5
-): Promise<any[]> {
+): Promise<SimilarFeedbackResult[]> {
     const formattedVector = `[${questionEmbedding.join(',')}]`;
 
     // Perform Cosine Similarity (<=>) bounded securely to workspaceId
-    const results = await prisma.$queryRaw`
+    const results = await prisma.$queryRaw<SimilarFeedbackResult[]>`
         SELECT f.id, f.content, f.source, f."categoryId", c.name as category,
                1 - (e.embedding <=> ${formattedVector}::vector) as similarity
         FROM "Feedback" f
@@ -57,5 +66,5 @@ export async function searchSimilarFeedback(
         LIMIT ${topK};
     `;
 
-    return results as any[];
+    return results;
 }

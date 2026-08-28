@@ -77,7 +77,18 @@ export async function GET(
             currentCountMap[cid] = (currentCountMap[cid] || 0) + 1;
         }
 
-        const responseThemes: any[] = [];
+        interface TrendTheme {
+            themeId: string;
+            theme: string;
+            currentVolume: number;
+            previousVolume: number;
+            change: number;
+            changePercent: number;
+            isSpike: boolean;
+            data: { date: string; count: number }[];
+        }
+
+        const responseThemes: TrendTheme[] = [];
         categoryMap.forEach((name, cid) => {
             const currentVolume = currentCountMap[cid] || 0;
             const previousVolume = prevCountMap.get(cid) || 0;

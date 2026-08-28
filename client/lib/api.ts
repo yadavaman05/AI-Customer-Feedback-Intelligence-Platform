@@ -284,7 +284,7 @@ class ApiClient {
             if (status === "in_progress") mappedStatus = "IN_PROGRESS";
             else if (status === "resolved") mappedStatus = "RESOLVED";
 
-            const res: any = await this.patch<any>(`/api/workspaces/${workspaceId}/feedbacks/${id}`, { status: mappedStatus });
+            await this.patch<any>(`/api/workspaces/${workspaceId}/feedbacks/${id}`, { status: mappedStatus });
 
             return {
                 success: true,

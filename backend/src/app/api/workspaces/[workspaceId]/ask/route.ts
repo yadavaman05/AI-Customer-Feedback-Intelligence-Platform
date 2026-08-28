@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/rbac";
-import { searchSimilarFeedback, generateEmbedding } from "@/lib/ai/embeddings";
+import { searchSimilarFeedback, generateEmbedding, SimilarFeedbackResult } from "@/lib/ai/embeddings";
 import { generateGroundedAnswer } from "@/lib/ai/claude";
 
 export async function POST(
@@ -33,7 +33,7 @@ export async function POST(
         }
 
         // 2. Perform Workspace-Scoped Semantic Search
-        let retrievedContext: any[] = [];
+        let retrievedContext: SimilarFeedbackResult[] = [];
         try {
             retrievedContext = await searchSimilarFeedback(context.workspaceId, questionEmbedding, k);
         } catch (e) {

@@ -26,7 +26,7 @@ export async function POST(
         let formData: FormData;
         try {
             formData = await request.formData();
-        } catch (e) {
+        } catch {
             return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
         }
 
@@ -130,10 +130,10 @@ export async function POST(
                     try {
                         const embedding = await generateEmbedding(created.content);
                         await storeFeedbackEmbedding(created.id, embedding);
-                    } catch (e) {
+                    } catch {
                         // safe skip
                     }
-                } catch (error) {
+                } catch {
                     failures.push({ row: 0, reason: "Database error during row creation" });
                 }
             }

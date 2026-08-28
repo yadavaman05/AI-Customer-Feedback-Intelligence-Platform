@@ -11,16 +11,28 @@ export type WorkspaceContext = {
     role: Role;
 };
 
+export type AuthUser = {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+};
+
 /**
  * Retrieves the currently authenticated user from NextAuth or Bearer token.
  * Returns null if the user is unauthenticated.
  */
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<AuthUser | null> {
     // 1. Try standard cookie-based session
     try {
         const session = await getServerSession(authOptions);
-        if (session?.user) {
-            return session.user;
+        if (session?.user?.id) {
+            return {
+                id: session.user.id,
+                name: session.user.name,
+                email: session.user.email,
+                image: session.user.image,
+            };
         }
     } catch (e) {
         console.error("NextAuth session check failed:", e);
@@ -39,12 +51,15 @@ export async function getCurrentUser() {
                     secret,
                 });
                 if (decoded) {
-                    return {
-                        id: (decoded.id as string) || (decoded.sub as string),
-                        name: decoded.name as string | null,
-                        email: decoded.email as string,
-                        image: decoded.picture as string | null,
-                    };
+                    const id = (decoded.id as string) || (decoded.sub as string);
+                    if (id) {
+                        return {
+                            id,
+                            name: decoded.name as string | null,
+                            email: decoded.email as string,
+                            image: decoded.picture as string | null,
+                        };
+                    }
                 }
             }
         }
@@ -65,7 +80,7 @@ export async function requireWorkspaceAccess(
     allowedRoles: Role[] = ["OWNER", "ADMIN", "MEMBER", "VIEWER"]
 ): Promise<WorkspaceContext | null> {
     const user = await getCurrentUser();
-    const userId = (user as any)?.id;
+    const userId = user?.id;
 
     if (!userId) {
         return null;
