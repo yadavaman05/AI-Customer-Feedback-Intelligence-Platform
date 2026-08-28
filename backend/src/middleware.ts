@@ -1,10 +1,32 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function getAllowedOrigin(origin: string): string {
+    const configuredOrigins = process.env.ALLOWED_ORIGIN 
+        ? process.env.ALLOWED_ORIGIN.split(",").map(o => o.trim()) 
+        : [];
+
+    if (!origin) {
+        return "*";
+    }
+
+    if (
+        origin === "http://localhost:3000" ||
+        origin === "http://localhost:8000" ||
+        origin === "http://127.0.0.1:3000" ||
+        origin.endsWith(".vercel.app") ||
+        configuredOrigins.includes(origin) ||
+        configuredOrigins.includes("*")
+    ) {
+        return origin;
+    }
+
+    return configuredOrigins[0] || "http://localhost:3000";
+}
+
 export async function middleware(request: NextRequest) {
     const origin = request.headers.get("origin") || "";
-    const allowedOrigin = process.env.ALLOWED_ORIGIN || "http://localhost:3000";
-    const allowOriginHeader = origin === allowedOrigin ? origin : allowedOrigin;
+    const allowOriginHeader = getAllowedOrigin(origin);
 
     // Handle preflight OPTIONS requests
     if (request.method === "OPTIONS") {

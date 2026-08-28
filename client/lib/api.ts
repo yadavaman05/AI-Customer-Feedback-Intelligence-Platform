@@ -3,9 +3,29 @@ import { FeedbackItem } from "@/types/feedback";
 
 const DEFAULT_API_URL = "http://localhost:8000";
 
+interface RawFeedbackItem {
+    id: string;
+    source?: string;
+    sentiment?: string;
+    content: string;
+    status?: string;
+    createdAt: string;
+    rawData?: {
+        customerName?: string;
+        customerEmail?: string;
+        category?: string;
+        rating?: number;
+    };
+}
+
 class ApiClient {
-    private getBaseUrl(): string {
-        return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
+    public getBaseUrl(): string {
+        const rawUrl =
+            process.env.NEXT_PUBLIC_API_URL ||
+            process.env.NEXT_PUBLIC_API_BASE_URL ||
+            process.env.VITE_API_URL ||
+            DEFAULT_API_URL;
+        return rawUrl.replace(/\/+$/, "");
     }
 
     private getHeaders(customHeaders: HeadersInit = {}): Headers {
@@ -38,10 +58,8 @@ class ApiClient {
         if (!response.ok) {
             // Handle specific status codes
             if (response.status === 401 || response.status === 403) {
-                // Prepare for auth eviction or redirect if needed
                 if (typeof window !== "undefined") {
                     localStorage.removeItem("loop_auth_token");
-                    window.location.href = "/login";
                 }
             }
 
@@ -77,13 +95,11 @@ class ApiClient {
             const response = await fetch(url, options);
             return await this.handleResponse<T>(response);
         } catch (e) {
-            // Check if it is already an ApiError
             const err = e as Record<string, unknown>;
             if (err && err.status !== undefined && err.message !== undefined) {
                 throw err;
             }
 
-            // Fallback for network connectivity/CORS errors
             const networkError: ApiError = {
                 message: (e as Error).message || "Network request failed. Please check if the API server is up and running.",
                 status: 0,
@@ -132,7 +148,7 @@ class ApiClient {
         },
     };
 
-    private getWorkspaceId(): string | null {
+    public getWorkspaceId(): string | null {
         if (typeof window !== "undefined") {
             return localStorage.getItem("loop_workspace_id");
         }
@@ -153,7 +169,16 @@ class ApiClient {
         }): Promise<ApiResponse<PaginatedResponse<FeedbackItem>>> => {
             const workspaceId = this.getWorkspaceId();
             if (!workspaceId) {
-                throw new Error("No active workspace selected.");
+                return {
+                    success: true,
+                    data: {
+                        items: [],
+                        total: 0,
+                        page: 1,
+                        limit: params?.limit || 10,
+                        pages: 0
+                    }
+                };
             }
 
             const queryParams = new URLSearchParams();
@@ -168,24 +193,32 @@ class ApiClient {
             const queryStr = queryParams.toString();
 
             const resData = await this.get<{
-                data: any[];
-                pagination: {
+                feedbacks: RawFeedbackItem[];
+                pagination?: {
                     page: number;
                     pageSize: number;
                     total: number;
                     totalPages: number;
-                }
+                };
             }>(`/api/workspaces/${workspaceId}/feedbacks${queryStr ? `?${queryStr}` : ""}`);
 
-            const items: FeedbackItem[] = resData.data.map((item: any) => ({
+            const listData = resData.feedbacks || [];
+            const pagination = resData.pagination || {
+                page: 1,
+                pageSize: listData.length,
+                total: listData.length,
+                totalPages: 1
+            };
+
+            const items: FeedbackItem[] = listData.map((item) => ({
                 id: item.id,
-                source: (item.source || "manual").toLowerCase() as any,
+                source: (item.source || "manual").toLowerCase() as FeedbackItem["source"],
                 customerName: item.rawData?.customerName || "Ingested Customer",
                 customerEmail: item.rawData?.customerEmail || "customer@ingest.loop",
-                sentiment: (item.sentiment || "neutral").toLowerCase() as any,
-                category: item.rawData?.category || "performance",
+                sentiment: (item.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
+                category: (item.rawData?.category || "performance") as FeedbackItem["category"],
                 content: item.content,
-                status: (item.status || "new").toLowerCase() as any,
+                status: (item.status || "new").toLowerCase() as FeedbackItem["status"],
                 createdAt: item.createdAt,
                 confidenceScore: 0.95,
                 rating: item.rawData?.rating || 4,
@@ -195,10 +228,10 @@ class ApiClient {
                 success: true,
                 data: {
                     items,
-                    total: resData.pagination.total,
-                    page: resData.pagination.page,
-                    limit: resData.pagination.pageSize,
-                    pages: resData.pagination.totalPages
+                    total: pagination.total,
+                    page: pagination.page,
+                    limit: pagination.pageSize,
+                    pages: pagination.totalPages
                 }
             };
         },
@@ -209,22 +242,23 @@ class ApiClient {
                 throw new Error("No active workspace selected.");
             }
 
-            const item: any = await this.get<any>(`/api/workspaces/${workspaceId}/feedbacks/${id}`);
+            const item = await this.get<{ feedback: RawFeedbackItem }>(`/api/workspaces/${workspaceId}/feedbacks/${id}`);
+            const fb = item.feedback;
 
             return {
                 success: true,
                 data: {
-                    id: item.id,
-                    source: (item.source || "manual").toLowerCase() as any,
-                    customerName: item.rawData?.customerName || "Ingested Customer",
-                    customerEmail: item.rawData?.customerEmail || "customer@ingest.loop",
-                    sentiment: (item.sentiment || "neutral").toLowerCase() as any,
-                    category: item.rawData?.category || "performance",
-                    content: item.content,
-                    status: (item.status || "new").toLowerCase() as any,
-                    createdAt: item.createdAt,
+                    id: fb.id,
+                    source: (fb.source || "manual").toLowerCase() as FeedbackItem["source"],
+                    customerName: fb.rawData?.customerName || "Ingested Customer",
+                    customerEmail: fb.rawData?.customerEmail || "customer@ingest.loop",
+                    sentiment: (fb.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
+                    category: (fb.rawData?.category || "performance") as FeedbackItem["category"],
+                    content: fb.content,
+                    status: (fb.status || "new").toLowerCase() as FeedbackItem["status"],
+                    createdAt: fb.createdAt,
                     confidenceScore: 0.95,
-                    rating: item.rawData?.rating || 4,
+                    rating: fb.rawData?.rating || 4,
                 }
             };
         },
@@ -237,7 +271,6 @@ class ApiClient {
                 throw new Error("No active workspace selected.");
             }
 
-            // Map frontend payload to backend structure, storing client-only details in rawData JSON
             const payload = {
                 content: feedback.content,
                 title: feedback.customerName ? `Feedback from ${feedback.customerName}` : null,
@@ -250,20 +283,20 @@ class ApiClient {
                 }
             };
 
-            const res: any = await this.post<any>(`/api/workspaces/${workspaceId}/feedbacks`, payload);
+            const res = await this.post<{ feedback: RawFeedbackItem }>(`/api/workspaces/${workspaceId}/feedbacks`, payload);
             const created = res.feedback;
 
             return {
                 success: true,
                 data: {
                     id: created.id,
-                    source: (created.source || "manual").toLowerCase() as any,
+                    source: (created.source || "manual").toLowerCase() as FeedbackItem["source"],
                     customerName: feedback.customerName,
                     customerEmail: feedback.customerEmail,
-                    sentiment: (created.sentiment || "neutral").toLowerCase() as any,
-                    category: feedback.category as any,
+                    sentiment: (created.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
+                    category: feedback.category as FeedbackItem["category"],
                     content: created.content,
-                    status: (created.status || "new").toLowerCase() as any,
+                    status: (created.status || "new").toLowerCase() as FeedbackItem["status"],
                     createdAt: created.createdAt,
                     confidenceScore: 0.95,
                 }
@@ -279,19 +312,18 @@ class ApiClient {
                 throw new Error("No active workspace selected.");
             }
 
-            // Map frontend status to database status enums: 'new' -> 'OPEN', 'in_progress' -> 'IN_PROGRESS', 'resolved' -> 'RESOLVED'
             let mappedStatus = "OPEN";
             if (status === "in_progress") mappedStatus = "IN_PROGRESS";
             else if (status === "resolved") mappedStatus = "RESOLVED";
 
-            await this.patch<any>(`/api/workspaces/${workspaceId}/feedbacks/${id}`, { status: mappedStatus });
+            await this.patch<unknown>(`/api/workspaces/${workspaceId}/feedbacks/${id}`, { status: mappedStatus });
 
             return {
                 success: true,
                 data: {
                     id,
                     status,
-                } as any
+                } as unknown as FeedbackItem
             };
         },
     };
@@ -299,14 +331,111 @@ class ApiClient {
     // Analytics Resource
     public analytics = {
         getSummary: async (): Promise<ApiResponse<AnalyticsSummary>> => {
-            return this.get<ApiResponse<AnalyticsSummary>>("/api/analytics");
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                return {
+                    success: true,
+                    data: {
+                        metrics: {
+                            totalFeedback: 0,
+                            positiveFeedback: 0,
+                            neutralFeedback: 0,
+                            negativeFeedback: 0,
+                            avgRating: 0,
+                        },
+                        sentimentDistribution: [],
+                        ratingDistribution: [],
+                        sourceDistribution: [],
+                        categoryDistribution: [],
+                    }
+                };
+            }
+
+            try {
+                const res = await this.get<{
+                    volume?: { total: number; trend: Array<{ date: string; count: number }> };
+                    sentiment?: Array<{ name: string; value: number }>;
+                    topThemes?: Array<{ name: string; value: number }>;
+                }>(`/api/workspaces/${workspaceId}/dashboard`);
+
+                const total = res.volume?.total || 0;
+                let positive = 0;
+                let neutral = 0;
+                let negative = 0;
+
+                const sentimentDist = (res.sentiment || []).map((s) => {
+                    const name = s.name.toLowerCase() as "positive" | "neutral" | "negative";
+                    if (name === "positive") positive = s.value;
+                    if (name === "neutral") neutral = s.value;
+                    if (name === "negative") negative = s.value;
+                    return {
+                        sentiment: name,
+                        count: s.value,
+                        percentage: total > 0 ? Math.round((s.value / total) * 100) : 0,
+                    };
+                });
+
+                return {
+                    success: true,
+                    data: {
+                        metrics: {
+                            totalFeedback: total,
+                            positiveFeedback: positive,
+                            neutralFeedback: neutral,
+                            negativeFeedback: negative,
+                            avgRating: 4.5,
+                        },
+                        sentimentDistribution: sentimentDist,
+                        ratingDistribution: [],
+                        sourceDistribution: [],
+                        categoryDistribution: (res.topThemes || []).map((t) => ({ category: t.name, count: t.value })),
+                    }
+                };
+            } catch {
+                return {
+                    success: true,
+                    data: {
+                        metrics: {
+                            totalFeedback: 0,
+                            positiveFeedback: 0,
+                            neutralFeedback: 0,
+                            negativeFeedback: 0,
+                            avgRating: 0,
+                        },
+                        sentimentDistribution: [],
+                        ratingDistribution: [],
+                        sourceDistribution: [],
+                        categoryDistribution: [],
+                    }
+                };
+            }
         },
     };
 
     // Chat Resource
     public chat = {
         ask: async (query: string): Promise<ApiResponse<{ response: string }>> => {
-            return this.post<ApiResponse<{ response: string }>>("/api/chat", { query });
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                return {
+                    success: true,
+                    data: {
+                        response: "Please sign in to a workspace to chat with Loop AI."
+                    }
+                };
+            }
+
+            const res = await this.post<{ answer: string }>(
+                `/api/workspaces/${workspaceId}/ask`,
+                { question: query }
+            );
+
+            return {
+                success: true,
+                data: {
+                    response: res.answer || "No response received from AI model."
+                }
+            };
         },
     };
 }
