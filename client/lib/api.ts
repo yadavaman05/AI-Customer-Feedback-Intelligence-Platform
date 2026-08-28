@@ -1,13 +1,15 @@
 import { ApiResponse, ApiError, PaginatedResponse, AnalyticsSummary } from "@/types/api";
 import { FeedbackItem } from "@/types/feedback";
 
-const DEFAULT_API_URL = "http://localhost:8000";
+const PRODUCTION_API_URL = "https://ai-customer-feedback-intelligence-m4fd.onrender.com";
+const LOCAL_API_URL = "http://localhost:8000";
 
 interface RawFeedbackItem {
     id: string;
     source?: string;
     sentiment?: string;
     content: string;
+    title?: string | null;
     status?: string;
     createdAt: string;
     rawData?: {
@@ -20,12 +22,29 @@ interface RawFeedbackItem {
 
 class ApiClient {
     public getBaseUrl(): string {
-        const rawUrl =
+        // In browser runtime: if the app is hosted on Vercel / non-localhost, ALWAYS use the production Render backend
+        if (typeof window !== "undefined") {
+            const hostname = window.location.hostname;
+            const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname.startsWith("192.168.");
+            if (!isLocal) {
+                const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.VITE_API_URL;
+                if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
+                    return envUrl.trim().replace(/\/+$/, "");
+                }
+                return PRODUCTION_API_URL;
+            }
+        }
+
+        const envUrl =
             process.env.NEXT_PUBLIC_API_URL ||
             process.env.NEXT_PUBLIC_API_BASE_URL ||
-            process.env.VITE_API_URL ||
-            DEFAULT_API_URL;
-        return rawUrl.replace(/\/+$/, "");
+            process.env.VITE_API_URL;
+
+        if (envUrl && envUrl.trim() !== "") {
+            return envUrl.trim().replace(/\/+$/, "");
+        }
+
+        return process.env.NODE_ENV === "production" ? PRODUCTION_API_URL : LOCAL_API_URL;
     }
 
     private getHeaders(customHeaders: HeadersInit = {}): Headers {
@@ -56,7 +75,7 @@ class ApiClient {
         }
 
         if (!response.ok) {
-            // Handle specific status codes
+            // Handle auth eviction on 401/403
             if (response.status === 401 || response.status === 403) {
                 if (typeof window !== "undefined") {
                     localStorage.removeItem("loop_auth_token");
@@ -65,7 +84,7 @@ class ApiClient {
 
             const errPayload = payload as { message?: string; error?: string; errors?: Record<string, string[]> };
             const error: ApiError = {
-                message: errPayload?.message || errPayload?.error || "An unknown network error occurred",
+                message: errPayload?.error || errPayload?.message || `Request failed with status ${response.status}`,
                 status: response.status,
                 errors: errPayload?.errors,
             };
@@ -81,7 +100,22 @@ class ApiClient {
         body?: unknown,
         customHeaders?: HeadersInit
     ): Promise<T> {
-        const url = `${this.getBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+        const baseUrl = this.getBaseUrl();
+        const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+        const url = `${baseUrl}${normalizedPath}`;
+
+        const tokenPresent = typeof window !== "undefined" ? !!localStorage.getItem("loop_auth_token") : false;
+        const workspaceId = this.getWorkspaceId();
+
+        // Safe diagnostic logging (no secrets/tokens logged)
+        if (typeof window !== "undefined") {
+            console.debug(`[Loop API] ${method} ${normalizedPath}`, {
+                baseUrl,
+                hasAuth: tokenPresent,
+                workspaceId: workspaceId || "none"
+            });
+        }
+
         const options: RequestInit = {
             method,
             headers: this.getHeaders(customHeaders),
@@ -101,7 +135,7 @@ class ApiClient {
             }
 
             const networkError: ApiError = {
-                message: (e as Error).message || "Network request failed. Please check if the API server is up and running.",
+                message: (e as Error).message || "Network request failed. Please check backend connection.",
                 status: 0,
             };
             throw networkError;
@@ -138,6 +172,8 @@ class ApiClient {
         clearToken: () => {
             if (typeof window !== "undefined") {
                 localStorage.removeItem("loop_auth_token");
+                localStorage.removeItem("loop_workspace_id");
+                localStorage.removeItem("loop_workspace_slug");
             }
         },
         getToken: (): string | null => {
@@ -169,31 +205,27 @@ class ApiClient {
         }): Promise<ApiResponse<PaginatedResponse<FeedbackItem>>> => {
             const workspaceId = this.getWorkspaceId();
             if (!workspaceId) {
-                return {
-                    success: true,
-                    data: {
-                        items: [],
-                        total: 0,
-                        page: 1,
-                        limit: params?.limit || 10,
-                        pages: 0
-                    }
-                };
+                throw new Error("No active workspace selected. Please log in or select a workspace.");
             }
 
             const queryParams = new URLSearchParams();
             if (params) {
                 if (params.query) queryParams.append("search", params.query);
-                if (params.source && params.source !== "all") queryParams.append("channel", params.source);
-                if (params.sentiment && params.sentiment !== "all") queryParams.append("sentiment", params.sentiment);
-                if (params.status && params.status !== "all") queryParams.append("status", params.status);
+                if (params.source && params.source !== "all") queryParams.append("channel", params.source.toUpperCase());
+                if (params.sentiment && params.sentiment !== "all") queryParams.append("sentiment", params.sentiment.toUpperCase());
+                if (params.status && params.status !== "all") {
+                    let mappedStatus = params.status.toUpperCase();
+                    if (mappedStatus === "NEW") mappedStatus = "OPEN";
+                    queryParams.append("status", mappedStatus);
+                }
                 if (params.page) queryParams.append("page", String(params.page));
                 if (params.limit) queryParams.append("pageSize", String(params.limit));
             }
             const queryStr = queryParams.toString();
 
             const resData = await this.get<{
-                feedbacks: RawFeedbackItem[];
+                data?: RawFeedbackItem[];
+                feedbacks?: RawFeedbackItem[];
                 pagination?: {
                     page: number;
                     pageSize: number;
@@ -202,23 +234,23 @@ class ApiClient {
                 };
             }>(`/api/workspaces/${workspaceId}/feedbacks${queryStr ? `?${queryStr}` : ""}`);
 
-            const listData = resData.feedbacks || [];
+            const listData = resData.data || resData.feedbacks || [];
             const pagination = resData.pagination || {
                 page: 1,
                 pageSize: listData.length,
                 total: listData.length,
-                totalPages: 1
+                totalPages: 1,
             };
 
             const items: FeedbackItem[] = listData.map((item) => ({
                 id: item.id,
                 source: (item.source || "manual").toLowerCase() as FeedbackItem["source"],
-                customerName: item.rawData?.customerName || "Ingested Customer",
-                customerEmail: item.rawData?.customerEmail || "customer@ingest.loop",
+                customerName: item.rawData?.customerName || item.title || "Customer",
+                customerEmail: item.rawData?.customerEmail || "feedback@customer.io",
                 sentiment: (item.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
                 category: (item.rawData?.category || "performance") as FeedbackItem["category"],
                 content: item.content,
-                status: (item.status || "new").toLowerCase() as FeedbackItem["status"],
+                status: (item.status === "OPEN" ? "new" : (item.status || "new")).toLowerCase() as FeedbackItem["status"],
                 createdAt: item.createdAt,
                 confidenceScore: 0.95,
                 rating: item.rawData?.rating || 4,
@@ -231,8 +263,8 @@ class ApiClient {
                     total: pagination.total,
                     page: pagination.page,
                     limit: pagination.pageSize,
-                    pages: pagination.totalPages
-                }
+                    pages: pagination.totalPages,
+                },
             };
         },
 
@@ -250,16 +282,16 @@ class ApiClient {
                 data: {
                     id: fb.id,
                     source: (fb.source || "manual").toLowerCase() as FeedbackItem["source"],
-                    customerName: fb.rawData?.customerName || "Ingested Customer",
-                    customerEmail: fb.rawData?.customerEmail || "customer@ingest.loop",
+                    customerName: fb.rawData?.customerName || fb.title || "Customer",
+                    customerEmail: fb.rawData?.customerEmail || "feedback@customer.io",
                     sentiment: (fb.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
                     category: (fb.rawData?.category || "performance") as FeedbackItem["category"],
                     content: fb.content,
-                    status: (fb.status || "new").toLowerCase() as FeedbackItem["status"],
+                    status: (fb.status === "OPEN" ? "new" : (fb.status || "new")).toLowerCase() as FeedbackItem["status"],
                     createdAt: fb.createdAt,
                     confidenceScore: 0.95,
                     rating: fb.rawData?.rating || 4,
-                }
+                },
             };
         },
 
@@ -268,7 +300,7 @@ class ApiClient {
         ): Promise<ApiResponse<FeedbackItem>> => {
             const workspaceId = this.getWorkspaceId();
             if (!workspaceId) {
-                throw new Error("No active workspace selected.");
+                throw new Error("No active workspace selected. Please log in.");
             }
 
             const payload = {
@@ -280,7 +312,7 @@ class ApiClient {
                     customerEmail: feedback.customerEmail,
                     category: feedback.category,
                     rating: feedback.rating,
-                }
+                },
             };
 
             const res = await this.post<{ feedback: RawFeedbackItem }>(`/api/workspaces/${workspaceId}/feedbacks`, payload);
@@ -296,10 +328,10 @@ class ApiClient {
                     sentiment: (created.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
                     category: feedback.category as FeedbackItem["category"],
                     content: created.content,
-                    status: (created.status || "new").toLowerCase() as FeedbackItem["status"],
+                    status: (created.status === "OPEN" ? "new" : (created.status || "new")).toLowerCase() as FeedbackItem["status"],
                     createdAt: created.createdAt,
                     confidenceScore: 0.95,
-                }
+                },
             };
         },
 
@@ -323,7 +355,7 @@ class ApiClient {
                 data: {
                     id,
                     status,
-                } as unknown as FeedbackItem
+                } as unknown as FeedbackItem,
             };
         },
     };
@@ -333,82 +365,48 @@ class ApiClient {
         getSummary: async (): Promise<ApiResponse<AnalyticsSummary>> => {
             const workspaceId = this.getWorkspaceId();
             if (!workspaceId) {
-                return {
-                    success: true,
-                    data: {
-                        metrics: {
-                            totalFeedback: 0,
-                            positiveFeedback: 0,
-                            neutralFeedback: 0,
-                            negativeFeedback: 0,
-                            avgRating: 0,
-                        },
-                        sentimentDistribution: [],
-                        ratingDistribution: [],
-                        sourceDistribution: [],
-                        categoryDistribution: [],
-                    }
-                };
+                throw new Error("No active workspace selected. Please log in to view analytics.");
             }
 
-            try {
-                const res = await this.get<{
-                    volume?: { total: number; trend: Array<{ date: string; count: number }> };
-                    sentiment?: Array<{ name: string; value: number }>;
-                    topThemes?: Array<{ name: string; value: number }>;
-                }>(`/api/workspaces/${workspaceId}/dashboard`);
+            const res = await this.get<{
+                volume?: { total: number; trend: Array<{ date: string; count: number }> };
+                sentiment?: Array<{ name: string; value: number }>;
+                topThemes?: Array<{ name: string; value: number }>;
+            }>(`/api/workspaces/${workspaceId}/dashboard`);
 
-                const total = res.volume?.total || 0;
-                let positive = 0;
-                let neutral = 0;
-                let negative = 0;
+            const total = res.volume?.total || 0;
+            let positive = 0;
+            let neutral = 0;
+            let negative = 0;
 
-                const sentimentDist = (res.sentiment || []).map((s) => {
-                    const name = s.name.toLowerCase() as "positive" | "neutral" | "negative";
-                    if (name === "positive") positive = s.value;
-                    if (name === "neutral") neutral = s.value;
-                    if (name === "negative") negative = s.value;
-                    return {
-                        sentiment: name,
-                        count: s.value,
-                        percentage: total > 0 ? Math.round((s.value / total) * 100) : 0,
-                    };
-                });
-
+            const sentimentDist = (res.sentiment || []).map((s) => {
+                const name = s.name.toLowerCase() as "positive" | "neutral" | "negative";
+                if (name === "positive") positive = s.value;
+                if (name === "neutral") neutral = s.value;
+                if (name === "negative") negative = s.value;
                 return {
-                    success: true,
-                    data: {
-                        metrics: {
-                            totalFeedback: total,
-                            positiveFeedback: positive,
-                            neutralFeedback: neutral,
-                            negativeFeedback: negative,
-                            avgRating: 4.5,
-                        },
-                        sentimentDistribution: sentimentDist,
-                        ratingDistribution: [],
-                        sourceDistribution: [],
-                        categoryDistribution: (res.topThemes || []).map((t) => ({ category: t.name, count: t.value })),
-                    }
+                    sentiment: name,
+                    count: s.value,
+                    percentage: total > 0 ? Math.round((s.value / total) * 100) : 0,
                 };
-            } catch {
-                return {
-                    success: true,
-                    data: {
-                        metrics: {
-                            totalFeedback: 0,
-                            positiveFeedback: 0,
-                            neutralFeedback: 0,
-                            negativeFeedback: 0,
-                            avgRating: 0,
-                        },
-                        sentimentDistribution: [],
-                        ratingDistribution: [],
-                        sourceDistribution: [],
-                        categoryDistribution: [],
-                    }
-                };
-            }
+            });
+
+            return {
+                success: true,
+                data: {
+                    metrics: {
+                        totalFeedback: total,
+                        positiveFeedback: positive,
+                        neutralFeedback: neutral,
+                        negativeFeedback: negative,
+                        avgRating: 4.5,
+                    },
+                    sentimentDistribution: sentimentDist,
+                    ratingDistribution: [],
+                    sourceDistribution: [],
+                    categoryDistribution: (res.topThemes || []).map((t) => ({ category: t.name, count: t.value })),
+                },
+            };
         },
     };
 
@@ -417,12 +415,7 @@ class ApiClient {
         ask: async (query: string): Promise<ApiResponse<{ response: string }>> => {
             const workspaceId = this.getWorkspaceId();
             if (!workspaceId) {
-                return {
-                    success: true,
-                    data: {
-                        response: "Please sign in to a workspace to chat with Loop AI."
-                    }
-                };
+                throw new Error("No active workspace selected. Please log in.");
             }
 
             const res = await this.post<{ answer: string }>(
@@ -433,8 +426,8 @@ class ApiClient {
             return {
                 success: true,
                 data: {
-                    response: res.answer || "No response received from AI model."
-                }
+                    response: res.answer || "No response received from AI model.",
+                },
             };
         },
     };

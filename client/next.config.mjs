@@ -5,7 +5,7 @@ const nextConfig = {
       process.env.NEXT_PUBLIC_API_URL ||
       process.env.NEXT_PUBLIC_API_BASE_URL ||
       process.env.VITE_API_URL ||
-      "http://localhost:8000",
+      "https://ai-customer-feedback-intelligence-m4fd.onrender.com",
   },
 };
 
