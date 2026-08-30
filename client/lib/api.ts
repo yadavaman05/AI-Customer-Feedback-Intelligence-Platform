@@ -2,7 +2,7 @@ import { ApiResponse, ApiError, PaginatedResponse, AnalyticsSummary } from "@/ty
 import { FeedbackItem } from "@/types/feedback";
 
 const PRODUCTION_API_URL = "https://ai-customer-feedback-intelligence-m4fd.onrender.com";
-const LOCAL_API_URL = "http://localhost:8000";
+const LOCAL_API_URL = "http://localhost:3000";
 
 interface RawFeedbackItem {
     id: string;

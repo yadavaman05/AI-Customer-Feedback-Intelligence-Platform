@@ -11,7 +11,7 @@ import { api } from "@/lib/api";
 
 export default function LoginPage() {
     const router = useRouter();
-    const [email, setEmail] = useState("demo.john@loop.ai");
+    const [email, setEmail] = useState("admin@projectloop.com");
     const [password, setPassword] = useState("password123");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -120,6 +120,9 @@ export default function LoginPage() {
                         <CardDescription className="text-center text-slate-400">
                             Login to access your customer feedback workspace
                         </CardDescription>
+                        <div className="mt-2 text-3xs text-center text-slate-450 bg-slate-900/60 border border-slate-800/80 rounded-md py-1.5 px-2">
+                            Demo Admin: <span className="text-emerald-400 font-mono font-medium">admin@projectloop.com</span> &bull; <span className="text-slate-300 font-mono">password123</span>
+                        </div>
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
