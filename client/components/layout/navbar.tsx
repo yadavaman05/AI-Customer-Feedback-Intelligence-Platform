@@ -21,18 +21,6 @@ export default function Navbar({ onMenuToggle, pageTitle }: NavbarProps) {
     const [profileOpen, setProfileOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [searchFocused, setSearchFocused] = useState(false);
-    const [user, setUser] = useState<{ name: string; email: string; avatarInitials: string }>(mockUser);
-
-    useEffect(() => {
-        const storedName = localStorage.getItem("loop_user_name");
-        const storedEmail = localStorage.getItem("loop_user_email");
-        if (storedName || storedEmail) {
-            const name = storedName || mockUser.name;
-            const email = storedEmail || mockUser.email;
-            const avatarInitials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "LA";
-            setUser({ name, email, avatarInitials });
-        }
-    }, []);
 
     // Dynamic breadcrumb generation
     const getBreadcrumbs = () => {
@@ -187,9 +175,9 @@ export default function Navbar({ onMenuToggle, pageTitle }: NavbarProps) {
                         className="flex items-center gap-2 px-2 py-1 border border-slate-900 hover:border-slate-800 hover:bg-slate-900/30 rounded-lg transition-all"
                     >
                         <div className="h-7 w-7 rounded-lg bg-emerald-500/20 text-emerald-450 border border-emerald-500/30 flex items-center justify-center font-bold text-xs select-none">
-                            {user.avatarInitials}
+                            {mockUser.avatarInitials}
                         </div>
-                        <span className="hidden sm:inline text-xs font-semibold text-slate-300 max-w-[80px] truncate">{user.name}</span>
+                        <span className="hidden sm:inline text-xs font-semibold text-slate-300 max-w-[80px] truncate">{mockUser.name}</span>
                         <ChevronDown className={`h-3 w-3 text-slate-500 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
                     </button>
 
@@ -197,8 +185,8 @@ export default function Navbar({ onMenuToggle, pageTitle }: NavbarProps) {
                     {profileOpen && (
                         <div className="absolute right-0 mt-2.5 w-56 rounded-xl border border-slate-800 bg-slate-955 p-1.5 shadow-xl shadow-slate-955/50 z-50">
                             <div className="px-3 py-2 border-b border-slate-900">
-                                <p className="text-xs font-semibold text-white truncate">{user.name}</p>
-                                <p className="text-4xs text-slate-500 truncate mt-0.5">{user.email}</p>
+                                <p className="text-xs font-semibold text-white truncate">{mockUser.name}</p>
+                                <p className="text-4xs text-slate-500 truncate mt-0.5">{mockUser.email}</p>
                             </div>
                             <div className="py-1">
                                 <Link

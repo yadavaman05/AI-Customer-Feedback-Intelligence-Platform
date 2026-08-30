@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -34,18 +33,6 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose, className }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const [user, setUser] = useState<{ name: string; email: string; avatarInitials: string }>(mockUser);
-
-    useEffect(() => {
-        const storedName = localStorage.getItem("loop_user_name");
-        const storedEmail = localStorage.getItem("loop_user_email");
-        if (storedName || storedEmail) {
-            const name = storedName || mockUser.name;
-            const email = storedEmail || mockUser.email;
-            const avatarInitials = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "LA";
-            setUser({ name, email, avatarInitials });
-        }
-    }, []);
 
     const handleLogout = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -135,11 +122,11 @@ export default function Sidebar({ isOpen, onClose, className }: SidebarProps) {
                 <div className="p-4 border-t border-slate-900 bg-slate-955/40">
                     <div className="flex items-center gap-3 px-2 py-1.5 rounded-lg mb-3">
                         <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center font-bold text-emerald-455 border border-emerald-500/30 text-xs shadow-inner">
-                            {user.avatarInitials}
+                            {mockUser.avatarInitials}
                         </div>
                         <div className="flex-1 overflow-hidden">
-                            <h4 className="text-xs font-semibold text-white truncate">{user.name}</h4>
-                            <p className="text-4xs text-slate-500 truncate">{user.email}</p>
+                            <h4 className="text-xs font-semibold text-white truncate">{mockUser.name}</h4>
+                            <p className="text-4xs text-slate-500 truncate">{mockUser.email}</p>
                         </div>
                     </div>
                     <button
