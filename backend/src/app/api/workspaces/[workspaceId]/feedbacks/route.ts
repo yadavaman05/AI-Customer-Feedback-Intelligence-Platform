@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/rbac";
 import prisma from "@/lib/prisma";
-import { FeedbackSource, Sentiment, FeedbackStatus } from "@prisma/client";
+import { FeedbackSource, Sentiment, FeedbackStatus, Prisma } from "@prisma/client";
 import { classifyFeedback } from "@/lib/ai/claude";
 import { storeFeedbackClassification } from "@/lib/ai/store-classification";
 import { generateEmbedding, storeFeedbackEmbedding } from "@/lib/ai/embeddings";
@@ -35,7 +35,7 @@ export async function GET(
         const to = url.searchParams.get("to");
 
         // Base where: absolute workspace boundary (CRITICAL: NEVER replace)
-        const where: any = {
+        const where: Prisma.FeedbackWhereInput = {
             workspaceId: context.workspaceId,
         };
 

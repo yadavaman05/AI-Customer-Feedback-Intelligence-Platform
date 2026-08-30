@@ -25,8 +25,9 @@ export async function POST(
                 return NextResponse.json({ error: "Classification failed due to malformed AI response" }, { status: 422 });
             }
             return NextResponse.json({ classification: result }, { status: 200 });
-        } catch (apiError: any) {
-            return NextResponse.json({ error: apiError.message }, { status: 503 });
+        } catch (apiError: unknown) {
+            const errorMessage = apiError instanceof Error ? apiError.message : "AI service unavailable";
+            return NextResponse.json({ error: errorMessage }, { status: 503 });
         }
 
     } catch (error) {

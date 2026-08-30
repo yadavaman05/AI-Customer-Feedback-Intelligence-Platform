@@ -1,11 +1,50 @@
 import { ApiResponse, ApiError, PaginatedResponse, AnalyticsSummary } from "@/types/api";
 import { FeedbackItem } from "@/types/feedback";
 
-const DEFAULT_API_URL = "http://localhost:8000";
+const PRODUCTION_API_URL = "https://ai-customer-feedback-intelligence-m4fd.onrender.com";
+const LOCAL_API_URL = "http://localhost:3000";
+
+interface RawFeedbackItem {
+    id: string;
+    source?: string;
+    sentiment?: string;
+    content: string;
+    title?: string | null;
+    status?: string;
+    createdAt: string;
+    rawData?: {
+        customerName?: string;
+        customerEmail?: string;
+        category?: string;
+        rating?: number;
+    };
+}
 
 class ApiClient {
-    private getBaseUrl(): string {
-        return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
+    public getBaseUrl(): string {
+        // In browser runtime: if the app is hosted on Vercel / non-localhost, ALWAYS use the production Render backend
+        if (typeof window !== "undefined") {
+            const hostname = window.location.hostname;
+            const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname.startsWith("192.168.");
+            if (!isLocal) {
+                const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.VITE_API_URL;
+                if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
+                    return envUrl.trim().replace(/\/+$/, "");
+                }
+                return PRODUCTION_API_URL;
+            }
+        }
+
+        const envUrl =
+            process.env.NEXT_PUBLIC_API_URL ||
+            process.env.NEXT_PUBLIC_API_BASE_URL ||
+            process.env.VITE_API_URL;
+
+        if (envUrl && envUrl.trim() !== "") {
+            return envUrl.trim().replace(/\/+$/, "");
+        }
+
+        return process.env.NODE_ENV === "production" ? PRODUCTION_API_URL : LOCAL_API_URL;
     }
 
     private getHeaders(customHeaders: HeadersInit = {}): Headers {
@@ -36,18 +75,16 @@ class ApiClient {
         }
 
         if (!response.ok) {
-            // Handle specific status codes
+            // Handle auth eviction on 401/403
             if (response.status === 401 || response.status === 403) {
-                // Prepare for auth eviction or redirect if needed
                 if (typeof window !== "undefined") {
                     localStorage.removeItem("loop_auth_token");
-                    window.location.href = "/login";
                 }
             }
 
             const errPayload = payload as { message?: string; error?: string; errors?: Record<string, string[]> };
             const error: ApiError = {
-                message: errPayload?.message || errPayload?.error || "An unknown network error occurred",
+                message: errPayload?.error || errPayload?.message || `Request failed with status ${response.status}`,
                 status: response.status,
                 errors: errPayload?.errors,
             };
@@ -63,7 +100,22 @@ class ApiClient {
         body?: unknown,
         customHeaders?: HeadersInit
     ): Promise<T> {
-        const url = `${this.getBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+        const baseUrl = this.getBaseUrl();
+        const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+        const url = `${baseUrl}${normalizedPath}`;
+
+        const tokenPresent = typeof window !== "undefined" ? !!localStorage.getItem("loop_auth_token") : false;
+        const workspaceId = this.getWorkspaceId();
+
+        // Safe diagnostic logging (no secrets/tokens logged)
+        if (typeof window !== "undefined") {
+            console.debug(`[Loop API] ${method} ${normalizedPath}`, {
+                baseUrl,
+                hasAuth: tokenPresent,
+                workspaceId: workspaceId || "none"
+            });
+        }
+
         const options: RequestInit = {
             method,
             headers: this.getHeaders(customHeaders),
@@ -77,15 +129,13 @@ class ApiClient {
             const response = await fetch(url, options);
             return await this.handleResponse<T>(response);
         } catch (e) {
-            // Check if it is already an ApiError
             const err = e as Record<string, unknown>;
             if (err && err.status !== undefined && err.message !== undefined) {
                 throw err;
             }
 
-            // Fallback for network connectivity/CORS errors
             const networkError: ApiError = {
-                message: (e as Error).message || "Network request failed. Please check if the API server is up and running.",
+                message: (e as Error).message || "Network request failed. Please check backend connection.",
                 status: 0,
             };
             throw networkError;
@@ -122,6 +172,8 @@ class ApiClient {
         clearToken: () => {
             if (typeof window !== "undefined") {
                 localStorage.removeItem("loop_auth_token");
+                localStorage.removeItem("loop_workspace_id");
+                localStorage.removeItem("loop_workspace_slug");
             }
         },
         getToken: (): string | null => {
@@ -131,6 +183,13 @@ class ApiClient {
             return null;
         },
     };
+
+    public getWorkspaceId(): string | null {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("loop_workspace_id");
+        }
+        return null;
+    }
 
     // Feedback Resource
     public feedback = {
@@ -144,49 +203,232 @@ class ApiClient {
             page?: number;
             limit?: number;
         }): Promise<ApiResponse<PaginatedResponse<FeedbackItem>>> => {
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected. Please log in or select a workspace.");
+            }
+
             const queryParams = new URLSearchParams();
             if (params) {
-                Object.entries(params).forEach(([key, val]) => {
-                    if (val !== undefined && val !== null && val !== "all" && val !== "") {
-                        queryParams.append(key, String(val));
-                    }
-                });
+                if (params.query) queryParams.append("search", params.query);
+                if (params.source && params.source !== "all") queryParams.append("channel", params.source.toUpperCase());
+                if (params.sentiment && params.sentiment !== "all") queryParams.append("sentiment", params.sentiment.toUpperCase());
+                if (params.status && params.status !== "all") {
+                    let mappedStatus = params.status.toUpperCase();
+                    if (mappedStatus === "NEW") mappedStatus = "OPEN";
+                    queryParams.append("status", mappedStatus);
+                }
+                if (params.page) queryParams.append("page", String(params.page));
+                if (params.limit) queryParams.append("pageSize", String(params.limit));
             }
             const queryStr = queryParams.toString();
-            return this.get<ApiResponse<PaginatedResponse<FeedbackItem>>>(
-                `/api/feedback${queryStr ? `?${queryStr}` : ""}`
-            );
+
+            const resData = await this.get<{
+                data?: RawFeedbackItem[];
+                feedbacks?: RawFeedbackItem[];
+                pagination?: {
+                    page: number;
+                    pageSize: number;
+                    total: number;
+                    totalPages: number;
+                };
+            }>(`/api/workspaces/${workspaceId}/feedbacks${queryStr ? `?${queryStr}` : ""}`);
+
+            const listData = resData.data || resData.feedbacks || [];
+            const pagination = resData.pagination || {
+                page: 1,
+                pageSize: listData.length,
+                total: listData.length,
+                totalPages: 1,
+            };
+
+            const items: FeedbackItem[] = listData.map((item) => ({
+                id: item.id,
+                source: (item.source || "manual").toLowerCase() as FeedbackItem["source"],
+                customerName: item.rawData?.customerName || item.title || "Customer",
+                customerEmail: item.rawData?.customerEmail || "feedback@customer.io",
+                sentiment: (item.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
+                category: (item.rawData?.category || "performance") as FeedbackItem["category"],
+                content: item.content,
+                status: (item.status === "OPEN" ? "new" : (item.status || "new")).toLowerCase() as FeedbackItem["status"],
+                createdAt: item.createdAt,
+                confidenceScore: 0.95,
+                rating: item.rawData?.rating || 4,
+            }));
+
+            return {
+                success: true,
+                data: {
+                    items,
+                    total: pagination.total,
+                    page: pagination.page,
+                    limit: pagination.pageSize,
+                    pages: pagination.totalPages,
+                },
+            };
         },
 
         get: async (id: string): Promise<ApiResponse<FeedbackItem>> => {
-            return this.get<ApiResponse<FeedbackItem>>(`/api/feedback/${id}`);
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected.");
+            }
+
+            const item = await this.get<{ feedback: RawFeedbackItem }>(`/api/workspaces/${workspaceId}/feedbacks/${id}`);
+            const fb = item.feedback;
+
+            return {
+                success: true,
+                data: {
+                    id: fb.id,
+                    source: (fb.source || "manual").toLowerCase() as FeedbackItem["source"],
+                    customerName: fb.rawData?.customerName || fb.title || "Customer",
+                    customerEmail: fb.rawData?.customerEmail || "feedback@customer.io",
+                    sentiment: (fb.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
+                    category: (fb.rawData?.category || "performance") as FeedbackItem["category"],
+                    content: fb.content,
+                    status: (fb.status === "OPEN" ? "new" : (fb.status || "new")).toLowerCase() as FeedbackItem["status"],
+                    createdAt: fb.createdAt,
+                    confidenceScore: 0.95,
+                    rating: fb.rawData?.rating || 4,
+                },
+            };
         },
 
         create: async (
             feedback: Omit<FeedbackItem, "id" | "createdAt" | "confidenceScore" | "sentiment" | "aiSummary" | "suggestedAction" | "keywords" | "status">
         ): Promise<ApiResponse<FeedbackItem>> => {
-            return this.post<ApiResponse<FeedbackItem>>("/api/feedback", feedback);
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected. Please log in.");
+            }
+
+            const payload = {
+                content: feedback.content,
+                title: feedback.customerName ? `Feedback from ${feedback.customerName}` : null,
+                source: feedback.source?.toUpperCase() || "MANUAL",
+                rawData: {
+                    customerName: feedback.customerName,
+                    customerEmail: feedback.customerEmail,
+                    category: feedback.category,
+                    rating: feedback.rating,
+                },
+            };
+
+            const res = await this.post<{ feedback: RawFeedbackItem }>(`/api/workspaces/${workspaceId}/feedbacks`, payload);
+            const created = res.feedback;
+
+            return {
+                success: true,
+                data: {
+                    id: created.id,
+                    source: (created.source || "manual").toLowerCase() as FeedbackItem["source"],
+                    customerName: feedback.customerName,
+                    customerEmail: feedback.customerEmail,
+                    sentiment: (created.sentiment || "neutral").toLowerCase() as FeedbackItem["sentiment"],
+                    category: feedback.category as FeedbackItem["category"],
+                    content: created.content,
+                    status: (created.status === "OPEN" ? "new" : (created.status || "new")).toLowerCase() as FeedbackItem["status"],
+                    createdAt: created.createdAt,
+                    confidenceScore: 0.95,
+                },
+            };
         },
 
         updateStatus: async (
             id: string,
             status: "new" | "in_progress" | "resolved"
         ): Promise<ApiResponse<FeedbackItem>> => {
-            return this.patch<ApiResponse<FeedbackItem>>(`/api/feedback/${id}`, { status });
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected.");
+            }
+
+            let mappedStatus = "OPEN";
+            if (status === "in_progress") mappedStatus = "IN_PROGRESS";
+            else if (status === "resolved") mappedStatus = "RESOLVED";
+
+            await this.patch<unknown>(`/api/workspaces/${workspaceId}/feedbacks/${id}`, { status: mappedStatus });
+
+            return {
+                success: true,
+                data: {
+                    id,
+                    status,
+                } as unknown as FeedbackItem,
+            };
         },
     };
 
     // Analytics Resource
     public analytics = {
         getSummary: async (): Promise<ApiResponse<AnalyticsSummary>> => {
-            return this.get<ApiResponse<AnalyticsSummary>>("/api/analytics");
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected. Please log in to view analytics.");
+            }
+
+            const res = await this.get<{
+                volume?: { total: number; trend: Array<{ date: string; count: number }> };
+                sentiment?: Array<{ name: string; value: number }>;
+                topThemes?: Array<{ name: string; value: number }>;
+            }>(`/api/workspaces/${workspaceId}/dashboard`);
+
+            const total = res.volume?.total || 0;
+            let positive = 0;
+            let neutral = 0;
+            let negative = 0;
+
+            const sentimentDist = (res.sentiment || []).map((s) => {
+                const name = s.name.toLowerCase() as "positive" | "neutral" | "negative";
+                if (name === "positive") positive = s.value;
+                if (name === "neutral") neutral = s.value;
+                if (name === "negative") negative = s.value;
+                return {
+                    sentiment: name,
+                    count: s.value,
+                    percentage: total > 0 ? Math.round((s.value / total) * 100) : 0,
+                };
+            });
+
+            return {
+                success: true,
+                data: {
+                    metrics: {
+                        totalFeedback: total,
+                        positiveFeedback: positive,
+                        neutralFeedback: neutral,
+                        negativeFeedback: negative,
+                        avgRating: 4.5,
+                    },
+                    sentimentDistribution: sentimentDist,
+                    ratingDistribution: [],
+                    sourceDistribution: [],
+                    categoryDistribution: (res.topThemes || []).map((t) => ({ category: t.name, count: t.value })),
+                },
+            };
         },
     };
 
     // Chat Resource
     public chat = {
         ask: async (query: string): Promise<ApiResponse<{ response: string }>> => {
-            return this.post<ApiResponse<{ response: string }>>("/api/chat", { query });
+            const workspaceId = this.getWorkspaceId();
+            if (!workspaceId) {
+                throw new Error("No active workspace selected. Please log in.");
+            }
+
+            const res = await this.post<{ answer: string }>(
+                `/api/workspaces/${workspaceId}/ask`,
+                { question: query }
+            );
+
+            return {
+                success: true,
+                data: {
+                    response: res.answer || "No response received from AI model.",
+                },
+            };
         },
     };
 }

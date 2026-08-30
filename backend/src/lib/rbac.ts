@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { decode } from "next-auth/jwt";
+import { headers } from "next/headers";
 
 export type WorkspaceContext = {
     userId: string;
@@ -9,13 +11,63 @@ export type WorkspaceContext = {
     role: Role;
 };
 
+export type AuthUser = {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+};
+
 /**
- * Retrieves the currently authenticated user from NextAuth.
+ * Retrieves the currently authenticated user from NextAuth or Bearer token.
  * Returns null if the user is unauthenticated.
  */
-export async function getCurrentUser() {
-    const session = await getServerSession(authOptions);
-    return session?.user ?? null;
+export async function getCurrentUser(): Promise<AuthUser | null> {
+    // 1. Try standard cookie-based session
+    try {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.id) {
+            return {
+                id: session.user.id,
+                name: session.user.name,
+                email: session.user.email,
+                image: session.user.image,
+            };
+        }
+    } catch (e) {
+        console.error("NextAuth session check failed:", e);
+    }
+
+    // 2. Try Authorization: Bearer token in headers
+    try {
+        const reqHeaders = headers();
+        const authHeader = reqHeaders.get("authorization");
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const tokenString = authHeader.substring(7);
+            const secret = process.env.NEXTAUTH_SECRET;
+            if (secret) {
+                const decoded = await decode({
+                    token: tokenString,
+                    secret,
+                });
+                if (decoded) {
+                    const id = (decoded.id as string) || (decoded.sub as string);
+                    if (id) {
+                        return {
+                            id,
+                            name: decoded.name as string | null,
+                            email: decoded.email as string,
+                            image: decoded.picture as string | null,
+                        };
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Bearer token decode failed:", e);
+    }
+
+    return null;
 }
 
 /**
@@ -28,7 +80,7 @@ export async function requireWorkspaceAccess(
     allowedRoles: Role[] = ["OWNER", "ADMIN", "MEMBER", "VIEWER"]
 ): Promise<WorkspaceContext | null> {
     const user = await getCurrentUser();
-    const userId = (user as any)?.id;
+    const userId = user?.id;
 
     if (!userId) {
         return null;

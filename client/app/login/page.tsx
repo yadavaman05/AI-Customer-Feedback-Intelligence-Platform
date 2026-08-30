@@ -11,7 +11,7 @@ import { api } from "@/lib/api";
 
 export default function LoginPage() {
     const router = useRouter();
-    const [email, setEmail] = useState("demo.john@loop.ai");
+    const [email, setEmail] = useState("admin@projectloop.com");
     const [password, setPassword] = useState("password123");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -50,22 +50,47 @@ export default function LoginPage() {
         return isValid;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!validateForm()) return;
 
         setIsLoading(true);
-        setTimeout(() => {
-            setIsLoading(false);
-            // Simulate demo authentication
-            if (email === "demo.john@loop.ai" && password === "password123") {
-                api.auth.setToken("lp_demo_token");
-                router.push("/dashboard");
-            } else {
-                setFormError("Invalid email or password. Use demo.john@loop.ai / password123");
+        setFormError("");
+
+        try {
+            const apiUrl = api.getBaseUrl();
+            const response = await fetch(`${apiUrl}/api/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setFormError(data.error || "Invalid email or password.");
+                setIsLoading(false);
+                return;
             }
-        }, 1200);
+
+            api.auth.setToken(data.token);
+            if (data.workspace) {
+                localStorage.setItem("loop_workspace_id", data.workspace.id);
+                localStorage.setItem("loop_workspace_slug", data.workspace.slug);
+            }
+            localStorage.setItem("loop_user_name", data.user.name || "");
+            localStorage.setItem("loop_user_email", data.user.email || "");
+
+            router.push("/dashboard");
+        } catch (err) {
+            console.error("Login failed:", err);
+            setFormError("Network connection error. Ensure backend is running.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -95,6 +120,9 @@ export default function LoginPage() {
                         <CardDescription className="text-center text-slate-400">
                             Login to access your customer feedback workspace
                         </CardDescription>
+                        <div className="mt-2 text-3xs text-center text-slate-450 bg-slate-900/60 border border-slate-800/80 rounded-md py-1.5 px-2">
+                            Demo Admin: <span className="text-emerald-400 font-mono font-medium">admin@projectloop.com</span> &bull; <span className="text-slate-300 font-mono">password123</span>
+                        </div>
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">

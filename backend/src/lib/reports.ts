@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function computeWorkspaceStats(workspaceId: string, startDate?: Date, endDate?: Date) {
-    const where: any = { workspaceId };
+    const where: Prisma.FeedbackWhereInput = { workspaceId };
     if (startDate && endDate) {
         where.createdAt = { gte: startDate, lt: endDate };
     }

@@ -1,9 +1,12 @@
 import { PrismaClient, Role, FeedbackSource, Sentiment } from '@prisma/client'
+import bcrypt from 'bcrypt'
 
 const prisma = new PrismaClient()
 
 async function main() {
     console.log('Starting execution of database seeds...')
+
+    const hashedPassword = await bcrypt.hash('password123', 10)
 
     // Create an initial user
     const admin = await prisma.user.upsert({
@@ -12,6 +15,7 @@ async function main() {
         create: {
             email: 'admin@projectloop.com',
             name: 'Loop Administrator',
+            password: hashedPassword,
         },
     })
 

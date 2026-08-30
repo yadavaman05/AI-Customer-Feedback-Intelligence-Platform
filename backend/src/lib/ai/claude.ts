@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { Sentiment } from '@prisma/client';
+import { SimilarFeedbackResult } from './embeddings';
 
 const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY || '',
@@ -47,7 +48,7 @@ Structure:
         try {
             const raw = textBlock.text.trim().replace(/^```json\s*/i, '').replace(/```$/, '');
             parsedJson = JSON.parse(raw);
-        } catch (e) {
+        } catch {
             console.error("AI returned malformed JSON");
             return null;
         }
@@ -70,12 +71,12 @@ const groundedAnswerSchema = z.object({
     citations: z.array(z.string()).describe("An array of actual feedback IDs that directly supported your factual claims. Only include IDs explicitly provided.")
 });
 
-export async function generateGroundedAnswer(question: string, context: any[]) {
+export async function generateGroundedAnswer(question: string, context: SimilarFeedbackResult[]) {
     if (!process.env.ANTHROPIC_API_KEY) {
         throw new Error("ANTHROPIC_API_KEY is not configured.");
     }
 
-    const contextStr = context.map((item, index) => {
+    const contextStr = context.map((item) => {
         return `[ID: ${item.id}]\nContent: ${item.content}\nSource: ${item.source}\nCategory: ${item.category || 'None'}\nSimilarity: ${item.similarity.toFixed(2)}\n---`;
     }).join('\n');
 
@@ -140,7 +141,7 @@ const vocSchema = z.object({
     narrative: z.string().describe("A concise 3-4 paragraph Voice-of-Customer report outlining overall picture, dominant sentiment, themes, complaints, and recommendations.")
 });
 
-export async function generateVoCNarrative(stats: any) {
+export async function generateVoCNarrative(stats: Record<string, unknown>) {
     if (!process.env.ANTHROPIC_API_KEY) {
         throw new Error("ANTHROPIC_API_KEY is not configured.");
     }
